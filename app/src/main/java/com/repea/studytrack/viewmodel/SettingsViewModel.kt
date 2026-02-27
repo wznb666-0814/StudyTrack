@@ -8,6 +8,7 @@ import com.repea.studytrack.data.local.entity.ExamType
 import com.repea.studytrack.data.local.entity.Subject
 import com.repea.studytrack.repository.StudyRepository
 import com.repea.studytrack.utils.ExcelHelper
+import com.repea.studytrack.utils.ExcelImportResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -23,6 +24,9 @@ class SettingsViewModel @Inject constructor(
 
     private val _exportStatus = MutableSharedFlow<String>()
     val exportStatus = _exportStatus.asSharedFlow()
+
+    private val _importResult = MutableSharedFlow<ImportUiResult>()
+    val importResult = _importResult.asSharedFlow()
 
     fun exportData(uri: Uri) {
         viewModelScope.launch {
@@ -61,31 +65,41 @@ class SettingsViewModel @Inject constructor(
 
     fun importData(uri: Uri) {
         viewModelScope.launch {
-            val parsedRecords = excelHelper.readExcel(uri)
-            parsedRecords.forEach { record ->
-                // Find or create subject
-                var subjectId = repository.getSubjectByName(record.subjectName)?.id
-                if (subjectId == null) {
-                    val newSubject = Subject(name = record.subjectName, fullScore = 100.0)
-                    subjectId = repository.addSubject(newSubject).toInt()
+            when (val result = excelHelper.readExcelWithValidation(uri)) {
+                is ExcelImportResult.Failure -> {
+                    _importResult.emit(ImportUiResult.Failure(result.message, result.formatGuide))
                 }
-
-                repository.addRecord(
-                    ExamRecord(
-                        subjectId = subjectId,
-                        examName = record.examName,
-                        examDate = record.date,
-                        score = record.score,
-                        examType = ExamType.fromLabel(record.type).label,
-                        classRank = record.classRank,
-                        gradeRank = record.gradeRank,
-                        districtRank = record.districtRank,
-                        reflection = record.reflection,
-                        imageUri = null
-                    )
-                )
+                is ExcelImportResult.Success -> {
+                    result.records.forEach { record ->
+                        var subjectId = repository.getSubjectByName(record.subjectName)?.id
+                        if (subjectId == null) {
+                            val fullScore = record.fullScore ?: 100.0
+                            val newSubject = Subject(name = record.subjectName, fullScore = fullScore)
+                            subjectId = repository.addSubject(newSubject).toInt()
+                        }
+                        repository.addRecord(
+                            ExamRecord(
+                                subjectId = subjectId,
+                                examName = record.examName,
+                                examDate = record.date,
+                                score = record.score,
+                                examType = ExamType.fromLabel(record.type).label,
+                                classRank = record.classRank,
+                                gradeRank = record.gradeRank,
+                                districtRank = record.districtRank,
+                                reflection = record.reflection,
+                                imageUri = null
+                            )
+                        )
+                    }
+                    _importResult.emit(ImportUiResult.Success)
+                }
             }
-            _exportStatus.emit("导入完成")
         }
     }
+}
+
+sealed class ImportUiResult {
+    data object Success : ImportUiResult()
+    data class Failure(val message: String, val formatGuide: String) : ImportUiResult()
 }

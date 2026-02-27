@@ -25,9 +25,9 @@ class ExcelHelper @Inject constructor(
         val workbook = XSSFWorkbook()
         val sheet = workbook.createSheet("Grades")
 
-        // Header
+        // Header（包含满分列，方便导入时还原满分分值）
         val headerRow = sheet.createRow(0)
-        val headers = arrayOf("科目", "考试名称", "时间", "分数", "分类", "班排", "年排", "区排", "反思")
+        val headers = arrayOf("科目", "考试名称", "时间", "分数", "满分", "分类", "班排", "年排", "区排", "反思")
         headers.forEachIndexed { index, title ->
             headerRow.createCell(index).setCellValue(title)
         }
@@ -40,11 +40,12 @@ class ExcelHelper @Inject constructor(
             row.createCell(1).setCellValue(record.exam.examName)
             row.createCell(2).setCellValue(dateFormat.format(Date(record.exam.examDate)))
             row.createCell(3).setCellValue(record.exam.score)
-            row.createCell(4).setCellValue(record.exam.examType)
-            row.createCell(5).setCellValue(record.exam.classRank?.toString() ?: "")
-            row.createCell(6).setCellValue(record.exam.gradeRank?.toString() ?: "")
-            row.createCell(7).setCellValue(record.exam.districtRank?.toString() ?: "")
-            row.createCell(8).setCellValue(record.exam.reflection ?: "")
+            row.createCell(4).setCellValue(record.subject.fullScore)
+            row.createCell(5).setCellValue(record.exam.examType)
+            row.createCell(6).setCellValue(record.exam.classRank?.toString() ?: "")
+            row.createCell(7).setCellValue(record.exam.gradeRank?.toString() ?: "")
+            row.createCell(8).setCellValue(record.exam.districtRank?.toString() ?: "")
+            row.createCell(9).setCellValue(record.exam.reflection ?: "")
         }
 
         return try {
@@ -63,9 +64,9 @@ class ExcelHelper @Inject constructor(
         val workbook = XSSFWorkbook()
         val sheet = workbook.createSheet("Grades")
 
-        // Header
+        // Header（与导出到指定 Uri 保持一致）
         val headerRow = sheet.createRow(0)
-        val headers = arrayOf("科目", "考试名称", "时间", "分数", "分类", "班排", "年排", "区排", "反思")
+        val headers = arrayOf("科目", "考试名称", "时间", "分数", "满分", "分类", "班排", "年排", "区排", "反思")
         headers.forEachIndexed { index, title ->
             headerRow.createCell(index).setCellValue(title)
         }
@@ -78,11 +79,12 @@ class ExcelHelper @Inject constructor(
             row.createCell(1).setCellValue(record.exam.examName)
             row.createCell(2).setCellValue(dateFormat.format(Date(record.exam.examDate)))
             row.createCell(3).setCellValue(record.exam.score)
-            row.createCell(4).setCellValue(record.exam.examType)
-            row.createCell(5).setCellValue(record.exam.classRank?.toString() ?: "")
-            row.createCell(6).setCellValue(record.exam.gradeRank?.toString() ?: "")
-            row.createCell(7).setCellValue(record.exam.districtRank?.toString() ?: "")
-            row.createCell(8).setCellValue(record.exam.reflection ?: "")
+            row.createCell(4).setCellValue(record.subject.fullScore)
+            row.createCell(5).setCellValue(record.exam.examType)
+            row.createCell(6).setCellValue(record.exam.classRank?.toString() ?: "")
+            row.createCell(7).setCellValue(record.exam.gradeRank?.toString() ?: "")
+            row.createCell(8).setCellValue(record.exam.districtRank?.toString() ?: "")
+            row.createCell(9).setCellValue(record.exam.reflection ?: "")
         }
 
         // Save
@@ -127,28 +129,103 @@ class ExcelHelper @Inject constructor(
         return null
     }
 
-    // Import needs more complex logic to match subjects, but for now basic reading
+    /** 正确格式说明，用于导入失败时引导用户 */
+    fun getImportFormatGuide(): String {
+        return "请按以下格式制作 Excel：\n\n" +
+            "• 首行必须为表头（中文字段名），且至少包含：科目、考试名称、时间、分数\n\n" +
+            "• 推荐完整表头顺序：\n" +
+            "  1. 科目  2. 考试名称  3. 时间（格式：yyyy-MM-dd）  4. 分数  5. 满分\n" +
+            "  6. 分类（如期中/期末）  7. 班排  8. 年排  9. 区排  10. 反思\n\n" +
+            "• 从第二行起为数据行；时间需为 yyyy-MM-dd 格式（如 2024-01-15）\n\n" +
+            "• 可先使用本应用的「导出成绩到 Excel」生成模板，再按相同格式编辑后导入。"
+    }
+
+    /**
+     * 校验并导入 Excel。若格式不符合要求则返回 Failure 并附带引导文案。
+     */
+    fun readExcelWithValidation(uri: Uri): ExcelImportResult {
+        return try {
+            val inputStream = context.contentResolver.openInputStream(uri)
+                ?: return ExcelImportResult.Failure("无法读取文件", getImportFormatGuide())
+            val workbook = WorkbookFactory.create(inputStream)
+            val sheet = workbook.getSheetAt(0) ?: run {
+                workbook.close()
+                return ExcelImportResult.Failure("表格为空", getImportFormatGuide())
+            }
+            val headerRow = sheet.getRow(0) ?: run {
+                workbook.close()
+                return ExcelImportResult.Failure("缺少表头行", getImportFormatGuide())
+            }
+            val headerIndex = mutableMapOf<String, Int>()
+            headerRow.forEach { cell ->
+                val title = cell.stringCellValue?.trim().orEmpty()
+                if (title.isNotEmpty()) headerIndex[title] = cell.columnIndex
+            }
+            val required = listOf("科目", "时间", "分数")
+            val missing = required.filter { it !in headerIndex }
+            if (missing.isNotEmpty()) {
+                workbook.close()
+                return ExcelImportResult.Failure(
+                    "表头缺少必填列：${missing.joinToString("、")}",
+                    getImportFormatGuide()
+                )
+            }
+            val records = readExcel(uri)
+            workbook.close()
+            if (records.isEmpty()) {
+                return ExcelImportResult.Failure("未解析到有效数据行（请检查表头与数据格式）", getImportFormatGuide())
+            }
+            ExcelImportResult.Success(records)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ExcelImportResult.Failure("解析失败：${e.message ?: "未知错误"}", getImportFormatGuide())
+        }
+    }
+
+    // 导入：支持按表头名称动态匹配列，并可选读取「满分」列
     fun readExcel(uri: Uri): List<ParsedRecord> {
         val records = mutableListOf<ParsedRecord>()
         try {
             val inputStream = context.contentResolver.openInputStream(uri)
             val workbook = WorkbookFactory.create(inputStream)
-            val sheet = workbook.getSheetAt(0)
-            
+            val sheet = workbook.getSheetAt(0) ?: return emptyList()
+
             val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
+            val headerRow = sheet.getRow(0) ?: return emptyList()
+            val headerIndex = mutableMapOf<String, Int>()
+            headerRow.forEach { cell ->
+                val title = cell.stringCellValue?.trim().orEmpty()
+                if (title.isNotEmpty()) {
+                    headerIndex[title] = cell.columnIndex
+                }
+            }
+
+            fun getString(row: org.apache.poi.ss.usermodel.Row, key: String): String? {
+                val index = headerIndex[key] ?: return null
+                val cell = row.getCell(index) ?: return null
+                return cell.toString().takeIf { it.isNotBlank() }
+            }
+
+            fun getDouble(row: org.apache.poi.ss.usermodel.Row, key: String): Double? {
+                val index = headerIndex[key] ?: return null
+                val cell = row.getCell(index) ?: return null
+                return cell.toString().toDoubleOrNull()
+            }
 
             for (row in sheet) {
                 if (row.rowNum == 0) continue // Skip header
 
-                val subjectName = row.getCell(0)?.stringCellValue ?: continue
-                val examName = row.getCell(1)?.stringCellValue ?: ""
-                val dateStr = row.getCell(2)?.stringCellValue ?: ""
-                val score = row.getCell(3)?.numericCellValue ?: 0.0
-                val typeStr = row.getCell(4)?.stringCellValue ?: "其他"
-                val classRank = row.getCell(5)?.stringCellValue?.toIntOrNull()
-                val gradeRank = row.getCell(6)?.stringCellValue?.toIntOrNull()
-                val districtRank = row.getCell(7)?.stringCellValue?.toIntOrNull()
-                val reflection = row.getCell(8)?.stringCellValue
+                val subjectName = getString(row, "科目") ?: continue
+                val examName = getString(row, "考试名称") ?: ""
+                val dateStr = getString(row, "时间") ?: ""
+                val score = getDouble(row, "分数") ?: 0.0
+                val fullScore = getDouble(row, "满分")
+                val typeStr = getString(row, "分类") ?: "其他"
+                val classRank = getString(row, "班排")?.toIntOrNull()
+                val gradeRank = getString(row, "年排")?.toIntOrNull()
+                val districtRank = getString(row, "区排")?.toIntOrNull()
+                val reflection = getString(row, "反思")
 
                 val date = try {
                     dateFormat.parse(dateStr)?.time ?: System.currentTimeMillis()
@@ -156,9 +233,20 @@ class ExcelHelper @Inject constructor(
                     System.currentTimeMillis()
                 }
 
-                records.add(ParsedRecord(
-                    subjectName, examName, date, score, typeStr, classRank, gradeRank, districtRank, reflection
-                ))
+                records.add(
+                    ParsedRecord(
+                        subjectName = subjectName,
+                        examName = examName,
+                        date = date,
+                        score = score,
+                        fullScore = fullScore,
+                        type = typeStr,
+                        classRank = classRank,
+                        gradeRank = gradeRank,
+                        districtRank = districtRank,
+                        reflection = reflection
+                    )
+                )
             }
             workbook.close()
         } catch (e: Exception) {
@@ -168,11 +256,17 @@ class ExcelHelper @Inject constructor(
     }
 }
 
+sealed class ExcelImportResult {
+    data class Success(val records: List<ParsedRecord>) : ExcelImportResult()
+    data class Failure(val message: String, val formatGuide: String) : ExcelImportResult()
+}
+
 data class ParsedRecord(
     val subjectName: String,
     val examName: String,
     val date: Long,
     val score: Double,
+    val fullScore: Double?,
     val type: String,
     val classRank: Int?,
     val gradeRank: Int?,

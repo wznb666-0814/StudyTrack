@@ -16,8 +16,12 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.res.ResourcesCompat
+import com.repea.studytrack.R
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
@@ -30,6 +34,10 @@ fun SimpleLineChart(
 ) {
     if (dataPoints.isEmpty()) return
 
+    val context = LocalContext.current
+    val typeface = remember {
+        ResourcesCompat.getFont(context, R.font.font)
+    }
     val animationProgress = remember { Animatable(0f) }
 
     LaunchedEffect(dataPoints) {
@@ -50,14 +58,16 @@ fun SimpleLineChart(
         val minVal = if (isRanking) 1.0 else 0.0
         val range = (maxVal - minVal).coerceAtLeast(1.0)
         
-        // Draw Y Axis Labels & Grid
+        // Draw Y Axis Labels & Grid（使用全局字体）
         val textPaint = android.graphics.Paint().apply {
             color = textColor.toArgb()
             textSize = 12.sp.toPx()
             textAlign = android.graphics.Paint.Align.RIGHT
+            this.typeface = typeface
         }
         
-        val ySteps = 5
+        val ySteps = if (height < 180.dp.toPx()) 3 else 5
+        var lastLabelY: Float? = null
         for (i in 0..ySteps) {
             val fraction = i.toFloat() / ySteps
             val yVal = minVal + (range * fraction)
@@ -77,12 +87,16 @@ fun SimpleLineChart(
                 strokeWidth = 1.dp.toPx()
             )
             
-            drawContext.canvas.nativeCanvas.drawText(
-                yVal.roundToInt().toString(),
-                padding - 10f,
-                y + 10f,
-                textPaint
-            )
+            val canDrawLabel = lastLabelY == null || abs(y - lastLabelY!!) > 16f
+            if (canDrawLabel) {
+                drawContext.canvas.nativeCanvas.drawText(
+                    yVal.roundToInt().toString(),
+                    padding - 10f,
+                    y + 10f,
+                    textPaint
+                )
+                lastLabelY = y
+            }
         }
 
         // Draw Axes
@@ -156,11 +170,12 @@ fun SimpleLineChart(
                     radius = 4.dp.toPx(),
                     center = point
                 )
-                // Draw value
+                val offsetY = if (index % 2 == 0) -18f else 18f
+                val labelY = (point.y + offsetY).coerceIn(padding, height - padding)
                 drawContext.canvas.nativeCanvas.drawText(
                     dataPoints[index].toInt().toString(),
                     point.x,
-                    point.y - 15f,
+                    labelY,
                     textPaint.apply { 
                         textAlign = android.graphics.Paint.Align.CENTER 
                         color = textColor.toArgb()

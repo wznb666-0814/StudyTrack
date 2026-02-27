@@ -58,5 +58,41 @@ class UserPreferencesViewModel @Inject constructor(
     fun setGlassChromaticAberration(enabled: Boolean) {
         viewModelScope.launch { repository.setGlassChromaticAberration(enabled) }
     }
+
+    fun setGradeA100(value: Float) {
+        viewModelScope.launch { repository.setGradeA100(value) }
+    }
+
+    fun setGradeB100(value: Float) {
+        viewModelScope.launch { repository.setGradeB100(value) }
+    }
+
+    fun setGradeC100(value: Float) {
+        viewModelScope.launch { repository.setGradeC100(value) }
+    }
+
+    fun setGradeA70(value: Float) {
+        viewModelScope.launch { repository.setGradeA70(value) }
+    }
+
+    fun setGradeB70(value: Float) {
+        viewModelScope.launch { repository.setGradeB70(value) }
+    }
+
+    fun setGradeC70(value: Float) {
+        viewModelScope.launch { repository.setGradeC70(value) }
+    }
+
+    fun setGradeA60(value: Float) {
+        viewModelScope.launch { repository.setGradeA60(value) }
+    }
+
+    fun setGradeB60(value: Float) {
+        viewModelScope.launch { repository.setGradeB60(value) }
+    }
+
+    fun setGradeC60(value: Float) {
+        viewModelScope.launch { repository.setGradeC60(value) }
+    }
 }
 

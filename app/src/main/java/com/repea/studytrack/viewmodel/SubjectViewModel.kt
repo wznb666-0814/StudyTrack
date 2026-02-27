@@ -24,6 +24,17 @@ class SubjectViewModel @Inject constructor(
         }
     }
 
+    fun updateSubject(subject: Subject, name: String, fullScore: Double) {
+        viewModelScope.launch {
+            repository.updateSubject(
+                subject.copy(
+                    name = name,
+                    fullScore = fullScore
+                )
+            )
+        }
+    }
+
     fun deleteSubject(subject: Subject) {
         viewModelScope.launch {
             repository.deleteSubject(subject)

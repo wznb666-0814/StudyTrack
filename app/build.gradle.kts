@@ -14,8 +14,19 @@ android {
         applicationId = "com.repea.studytrack"
         minSdk = 29
         targetSdk = 36
-        versionCode = 20000
-        versionName = "V2.0.0"
+        versionCode = 30000
+        versionName = "V3.0.0"
+
+        // DeepSeek AI 配置
+        // 使用 v1 前缀以兼容 OpenAI 风格的 /chat/completions 接口
+        buildConfigField("String", "DEEPSEEK_BASE_URL", "\"https://api.deepseek.com/v1\"")
+        buildConfigField("String", "DEEPSEEK_MODEL", "\"deepseek-chat\"")
+
+        // 优先从 local.properties 中读取 DEEPSEEK_API_KEY，其次回退为空字符串。
+        // 本仓库不包含真实密钥，请在本地自行配置：
+        //   DEEPSEEK_API_KEY=sk-xxxxxx
+        val deepseekApiKey = project.findProperty("DEEPSEEK_API_KEY") as String? ?: ""
+        buildConfigField("String", "DEEPSEEK_API_KEY", "\"$deepseekApiKey\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -37,6 +48,8 @@ android {
         jvmTarget = "17"
     }
     buildFeatures {
+        // 启用 BuildConfig 生成，以便使用自定义 buildConfigField
+        buildConfig = true
         compose = true
     }
     packaging {
@@ -91,6 +104,9 @@ dependencies {
     // Apache POI (Excel)
     implementation("org.apache.poi:poi:5.2.3")
     implementation("org.apache.poi:poi-ooxml:5.2.3")
+
+    // Networking (OkHttp) - for DeepSeek API
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

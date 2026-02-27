@@ -1,8 +1,5 @@
 package com.repea.studytrack.ui.screens
 
-import android.content.Intent
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,13 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -42,7 +34,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -58,23 +49,7 @@ fun PersonalizationScreen(
     viewModel: UserPreferencesViewModel = hiltViewModel()
 ) {
     val prefs by viewModel.preferences.collectAsState()
-    val context = LocalContext.current
     var isAdjustingSlider by remember { mutableStateOf(false) }
-
-    val pickWallpaperLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri ->
-            if (uri != null) {
-                runCatching {
-                    context.contentResolver.takePersistableUriPermission(
-                        uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                }
-                viewModel.setWallpaperUri(uri.toString())
-            }
-        }
-    )
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -96,48 +71,6 @@ fun PersonalizationScreen(
                 .verticalScroll(rememberScrollState(), enabled = !isAdjustingSlider),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("壁纸", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f), CircleShape)
-                                .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), CircleShape)
-                                .clickable { pickWallpaperLauncher.launch(arrayOf("image/*")) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Image, contentDescription = "选择壁纸", tint = MaterialTheme.colorScheme.onSurface)
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.35f), CircleShape)
-                                .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), CircleShape)
-                                .clickable { viewModel.setWallpaperUri(null) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = "清除壁纸", tint = MaterialTheme.colorScheme.onSurface)
-                        }
-
-                        Column(modifier = Modifier.align(Alignment.CenterVertically)) {
-                            Text(
-                                if (prefs.wallpaperUri.isNullOrBlank()) "未设置壁纸" else "已设置壁纸",
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                "选择后将作为全局背景",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
-                        }
-                    }
-                }
-            }
-
             GlassCard(modifier = Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("文字与图标颜色", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)

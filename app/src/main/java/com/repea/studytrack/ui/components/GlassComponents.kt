@@ -48,10 +48,10 @@ import com.kyant.backdrop.effects.vibrancy
 
 data class LiquidGlassParams(
     val enabled: Boolean = true,
-    val blurRadiusDp: Float = 1f,
+    val blurRadiusDp: Float = 10f,
     val refractionHeightDp: Float = 25f,
     val refractionAmountDp: Float = 30f,
-    val tintAlpha: Float = 0.10f,
+    val tintAlpha: Float = 0.15f,
     val borderAlpha: Float = 0.20f,
     val vibrancyEnabled: Boolean = true,
     val chromaticAberration: Boolean = true
@@ -119,7 +119,8 @@ fun LiquidBackground(
                 )
             }
         }
-        
+
+        // 主内容保持在 backdrop 层之上，恢复为之前稳定的用法
         content()
     }
 }

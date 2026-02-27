@@ -68,6 +68,9 @@ fun NavGraph(
         composable(Screen.AddExam.route) {
             AddExamScreen(navController = navController)
         }
+        composable(Screen.BatchAddExam.route) {
+            BatchAddExamScreen(navController = navController)
+        }
         composable(
             route = Screen.EditExam.route,
             arguments = listOf(navArgument("recordId") { type = NavType.IntType })
@@ -83,6 +86,13 @@ fun NavGraph(
         }
         composable(Screen.Personalization.route) {
             PersonalizationScreen(navController = navController)
+        }
+        composable(
+            route = Screen.AiChat.route,
+            arguments = listOf(navArgument("subjectId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val subjectId = backStackEntry.arguments?.getInt("subjectId") ?: -1
+            AiChatScreen(navController = navController, subjectId = subjectId)
         }
     }
 }

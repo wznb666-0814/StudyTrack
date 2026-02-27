@@ -7,5 +7,6 @@ import androidx.room.PrimaryKey
 data class Subject(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val name: String,
-    val fullScore: Double = 100.0
+    val fullScore: Double = 100.0,
+    val userId: Int = 1
 )

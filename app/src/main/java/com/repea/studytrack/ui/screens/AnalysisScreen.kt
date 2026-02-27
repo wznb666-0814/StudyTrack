@@ -3,6 +3,7 @@ package com.repea.studytrack.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -18,9 +19,11 @@ import com.repea.studytrack.data.local.entity.ExamWithSubject
 import com.repea.studytrack.data.local.entity.Subject
 import com.repea.studytrack.ui.components.GlassCard
 import com.repea.studytrack.ui.components.GlassDropdownMenu
+import com.repea.studytrack.ui.components.MarkdownText
 import com.repea.studytrack.ui.components.SimpleLineChart
 import com.repea.studytrack.utils.GradeCalculator
 import com.repea.studytrack.viewmodel.AnalysisViewModel
+import com.repea.studytrack.viewmodel.UserPreferencesViewModel
 import com.repea.studytrack.viewmodel.ExamViewModel // Assuming ExamViewModel has subjects flow
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,10 +31,12 @@ import com.repea.studytrack.viewmodel.ExamViewModel // Assuming ExamViewModel ha
 fun AnalysisScreen(
     navController: NavController,
     viewModel: AnalysisViewModel = hiltViewModel(),
-    examViewModel: ExamViewModel = hiltViewModel() // Inject ExamViewModel to get subjects
+    examViewModel: ExamViewModel = hiltViewModel(), // Inject ExamViewModel to get subjects
+    prefsViewModel: UserPreferencesViewModel = hiltViewModel()
 ) {
     val allRecords by viewModel.allRecords.collectAsState()
     val subjects by examViewModel.subjects.collectAsState()
+    val gradePrefs by prefsViewModel.preferences.collectAsState()
 
     var selectedSubject by remember { mutableStateOf<Subject?>(null) }
     var showFilterMenu by remember { mutableStateOf(false) }
@@ -96,28 +101,58 @@ fun AnalysisScreen(
                 .padding(16.dp)
         ) {
             val isWideScreen = maxWidth > 600.dp
-            
-            if (recordsBySubject.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("暂无数据可分析", color = MaterialTheme.colorScheme.onSurface)
-                }
-            } else {
-                if (isWideScreen) {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 400.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+
+            if (isWideScreen) {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 400.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(bottom = 96.dp)
+                ) {
+                    if (recordsBySubject.isEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("暂无数据可分析", color = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                    } else {
                         items(recordsBySubject.entries.toList()) { (subject, records) ->
-                            SubjectAnalysisCard(subject.name, subject.fullScore, records)
+                            SubjectAnalysisCard(
+                                navController = navController,
+                                subject = subject,
+                                records = records,
+                                viewModel = viewModel,
+                                gradePrefs = gradePrefs
+                            )
                         }
                     }
-                } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+                }
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(bottom = 96.dp)
+                ) {
+                    if (recordsBySubject.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("暂无数据可分析", color = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                    } else {
                         items(recordsBySubject.entries.toList()) { (subject, records) ->
-                            SubjectAnalysisCard(subject.name, subject.fullScore, records)
+                            SubjectAnalysisCard(
+                                navController = navController,
+                                subject = subject,
+                                records = records,
+                                viewModel = viewModel,
+                                gradePrefs = gradePrefs
+                            )
                         }
                     }
                 }
@@ -128,9 +163,11 @@ fun AnalysisScreen(
 
 @Composable
 fun SubjectAnalysisCard(
-    subjectName: String,
-    fullScore: Double,
-    records: List<ExamWithSubject>
+    navController: NavController,
+    subject: Subject,
+    records: List<ExamWithSubject>,
+    viewModel: AnalysisViewModel,
+    gradePrefs: com.repea.studytrack.repository.UserPreferencesState
 ) {
     if (records.isEmpty()) return
 
@@ -149,9 +186,9 @@ fun SubjectAnalysisCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(subjectName, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                Text(subject.name, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
                 Text(
-                    "满分: ${fullScore.toInt()}", 
+                    "满分: ${subject.fullScore.toInt()}",
                     style = MaterialTheme.typography.bodyMedium, 
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
@@ -184,7 +221,11 @@ fun SubjectAnalysisCard(
             
             // Latest Grade
             val latestRecord = sortedRecords.last()
-            val grade = GradeCalculator.calculateGrade(latestRecord.exam.score, fullScore)
+        val grade = GradeCalculator.calculateGradeCustom(
+            score = latestRecord.exam.score,
+            fullScore = subject.fullScore,
+            prefs = gradePrefs
+        )
             Text(
                 "最新评级: $grade", 
                 style = MaterialTheme.typography.bodyLarge, 
@@ -236,6 +277,90 @@ fun SubjectAnalysisCard(
                     textColor = MaterialTheme.colorScheme.onSurface,
                     isRanking = true
                 )
+            }
+
+            // AI 学习建议（结合该科目的分数与排名趋势）
+            val subjectAdvices by viewModel.subjectAdvices.collectAsState()
+            val loadingSubjects by viewModel.loadingSubjects.collectAsState()
+            val errorSubjects by viewModel.errorSubjects.collectAsState()
+
+            val advice = subjectAdvices[subject.id]
+            val isLoading = loadingSubjects.contains(subject.id)
+            val error = errorSubjects[subject.id]
+
+            LaunchedEffect(subject.id, records.size) {
+                viewModel.requestAdviceForSubject(
+                    subjectId = subject.id,
+                    subjectName = subject.name,
+                    fullScore = subject.fullScore,
+                    records = records
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                "AI 学习建议",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            if (isLoading && advice == null) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                )
+            }
+
+            when {
+                advice != null -> {
+                    MarkdownText(
+                        text = advice,
+                        modifier = Modifier.padding(top = 8.dp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
+                    )
+                }
+
+                !isLoading && error != null -> {
+                    Text(
+                        text = "获取 AI 建议失败：$error",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+
+                !isLoading -> {
+                    Text(
+                        text = "正在为你分析这门课的成绩与排名，请稍候片刻…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(
+                    onClick = {
+                        navController.navigate(
+                            com.repea.studytrack.ui.navigation.Screen.AiChat.route.replace(
+                                "{subjectId}",
+                                subject.id.toString()
+                            )
+                        )
+                    }
+                ) {
+                    Text("对话")
+                }
             }
         }
     }

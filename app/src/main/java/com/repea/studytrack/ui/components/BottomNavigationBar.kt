@@ -118,8 +118,8 @@ fun BottomNavigationBar(navController: NavController) {
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .height(86.dp)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .height(92.dp)
                 .then(containerModifier)
                 .padding(horizontal = 10.dp, vertical = 10.dp)
         ) {

@@ -3,6 +3,7 @@ package com.repea.studytrack.repository
 import com.repea.studytrack.data.local.entity.ExamRecord
 import com.repea.studytrack.data.local.entity.ExamWithSubject
 import com.repea.studytrack.data.local.entity.Subject
+import com.repea.studytrack.data.local.entity.UserProfile
 import kotlinx.coroutines.flow.Flow
 
 interface StudyRepository {
@@ -17,4 +18,10 @@ interface StudyRepository {
     suspend fun addRecord(record: ExamRecord)
     suspend fun updateRecord(record: ExamRecord)
     suspend fun deleteRecord(record: ExamRecord)
+
+    fun getAllUsers(): Flow<List<UserProfile>>
+    suspend fun getUserById(id: Int): UserProfile?
+    suspend fun addUser(user: UserProfile): Long
+    suspend fun updateUser(user: UserProfile)
+    suspend fun deleteUser(user: UserProfile)
 }

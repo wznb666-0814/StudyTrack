@@ -16,31 +16,57 @@ import com.repea.studytrack.ui.components.GlassCard
 import com.repea.studytrack.ui.components.PieChartData
 import com.repea.studytrack.ui.components.SimplePieChart
 import com.repea.studytrack.ui.navigation.Screen
+import com.repea.studytrack.utils.GradeCalculator
 import com.repea.studytrack.viewmodel.AnalysisViewModel
 import com.repea.studytrack.viewmodel.ExamViewModel
+import com.repea.studytrack.viewmodel.UserManagerViewModel
+import com.repea.studytrack.viewmodel.UserPreferencesViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
     analysisViewModel: AnalysisViewModel = hiltViewModel(),
-    examViewModel: ExamViewModel = hiltViewModel()
+    examViewModel: ExamViewModel = hiltViewModel(),
+    userManagerViewModel: UserManagerViewModel = hiltViewModel(),
+    prefsViewModel: UserPreferencesViewModel = hiltViewModel()
 ) {
     val recentExams by examViewModel.allRecords.collectAsState()
     val subjects by examViewModel.subjects.collectAsState()
 
-    val pieData = remember(recentExams) {
+    val userPrefs by userManagerViewModel.prefs.collectAsState()
+    val users by userManagerViewModel.users.collectAsState()
+    val gradePrefs by prefsViewModel.preferences.collectAsState()
+
+    val colorScheme = MaterialTheme.colorScheme
+
+    val pieData = remember(recentExams, colorScheme, gradePrefs) {
         if (recentExams.isEmpty()) emptyList()
         else {
-            val excellent = recentExams.count { it.exam.score / it.subject.fullScore >= 0.9 }
-            val good = recentExams.count { val r = it.exam.score / it.subject.fullScore; r >= 0.8 && r < 0.9 }
-            val pass = recentExams.count { val r = it.exam.score / it.subject.fullScore; r >= 0.6 && r < 0.8 }
-            val fail = recentExams.count { it.exam.score / it.subject.fullScore < 0.6 }
+            var countA = 0
+            var countB = 0
+            var countC = 0
+            var countD = 0
+
+            recentExams.forEach { e ->
+                val grade = GradeCalculator.calculateGradeCustom(
+                    score = e.exam.score,
+                    fullScore = e.subject.fullScore,
+                    prefs = gradePrefs
+                )
+                when (grade) {
+                    "A" -> countA++
+                    "B" -> countB++
+                    "C" -> countC++
+                    else -> countD++
+                }
+            }
             
             listOf(
-                PieChartData("优", excellent.toFloat(), Color(0xFF4CAF50)), // Green
-                PieChartData("良", good.toFloat(), Color(0xFF2196F3)), // Blue
-                PieChartData("中", pass.toFloat(), Color(0xFFFFC107)), // Amber
-                PieChartData("差", fail.toFloat(), Color(0xFFF44336))  // Red
+                PieChartData("A", countA.toFloat(), colorScheme.tertiary.copy(alpha = 0.95f)),
+                PieChartData("B", countB.toFloat(), colorScheme.primary.copy(alpha = 0.9f)),
+                PieChartData("C", countC.toFloat(), colorScheme.primary.copy(alpha = 0.65f)),
+                PieChartData("D", countD.toFloat(), colorScheme.error.copy(alpha = 0.8f))
             ).filter { it.value > 0 }
         }
     }
@@ -49,7 +75,6 @@ fun HomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
             .padding(16.dp)
     ) {
         Column(
@@ -61,8 +86,47 @@ fun HomeScreen(
                 text = "StudyTrack",
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier.padding(bottom = 8.dp)
             )
+
+            if (userPrefs.multiUserEnabled && users.isNotEmpty()) {
+                var menuExpanded by remember { mutableStateOf(false) }
+                val currentUser = users.firstOrNull { it.id == userPrefs.currentUserId } ?: users.first()
+
+                ExposedDropdownMenuBox(
+                    expanded = menuExpanded,
+                    onExpandedChange = { menuExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        readOnly = true,
+                        value = currentUser.name,
+                        onValueChange = {},
+                        label = { Text("当前用户") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuExpanded) },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false }
+                    ) {
+                        users.forEach { user ->
+                            DropdownMenuItem(
+                                text = { Text(user.name) },
+                                onClick = {
+                                    userManagerViewModel.setCurrentUser(user.id)
+                                    menuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            } else {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // Stats Cards
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -125,12 +189,14 @@ fun HomeScreen(
                 }
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
         }
 
-        // Quick Actions
+        // Quick Actions：适当下移，上下边距均衡
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp, bottom = 0.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             Button(onClick = { navController.navigate(Screen.AddExam.route) }) {

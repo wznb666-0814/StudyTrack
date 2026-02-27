@@ -28,5 +28,6 @@ data class ExamRecord(
     val gradeRank: Int? = null,
     val districtRank: Int? = null,
     val reflection: String? = null,
-    val imageUri: String? = null
+    val imageUri: String? = null,
+    val userId: Int = 1
 )

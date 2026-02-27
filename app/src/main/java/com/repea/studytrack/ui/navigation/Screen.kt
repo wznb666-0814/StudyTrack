@@ -31,8 +31,10 @@ sealed class Screen(
     object AddSubject : Screen("add_subject", "添加科目", Icons.Default.Add)
     object AddExam : Screen("add_exam", "添加成绩", Icons.Default.Add)
     object EditExam : Screen("edit_exam/{recordId}", "编辑成绩", Icons.Default.Edit)
+    object BatchAddExam : Screen("batch_add_exam", "批量添加成绩", Icons.Default.Add)
     object Personalization : Screen("personalization", "个性化", Icons.Filled.Star, Icons.Outlined.Star)
     object Welcome : Screen("welcome", "欢迎", Icons.Filled.Home, Icons.Outlined.Home)
+    object AiChat : Screen("ai_chat/{subjectId}", "AI 对话", Icons.Filled.Star, Icons.Outlined.Star)
 
     fun withRecordId(recordId: Int): String {
         return when (this) {
