@@ -1,5 +1,6 @@
 package com.repea.studytrack
 
+import android.content.Context
 import android.graphics.ImageDecoder
 import android.graphics.Color as AndroidColor
 import android.os.Bundle
@@ -44,6 +45,12 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        val config = newBase.resources.configuration
+        config.fontScale = 1f
+        super.attachBaseContext(newBase.createConfigurationContext(config))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false) // Ensure edge-to-edge

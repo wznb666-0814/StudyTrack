@@ -94,5 +94,8 @@ fun NavGraph(
             val subjectId = backStackEntry.arguments?.getInt("subjectId") ?: -1
             AiChatScreen(navController = navController, subjectId = subjectId)
         }
+        composable(Screen.Donate.route) {
+            DonateScreen(navController = navController)
+        }
     }
 }

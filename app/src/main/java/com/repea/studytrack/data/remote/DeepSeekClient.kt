@@ -28,10 +28,7 @@ class DeepSeekClient @Inject constructor(
     private val model: String = BuildConfig.DEEPSEEK_MODEL
 
     private fun apiKey(): String {
-        // 优先使用 BuildConfig 中的密钥，其次尝试环境变量，避免将密钥硬编码在代码库中
-        return BuildConfig.DEEPSEEK_API_KEY.ifBlank {
-            System.getenv("DEEPSEEK_API_KEY") ?: ""
-        }
+        return "sk-cf0a235045c64c819d66363755981f41"
     }
 
     private fun buildRequestBody(messages: List<AiMessage>): String {
@@ -69,9 +66,6 @@ class DeepSeekClient @Inject constructor(
      */
     suspend fun chat(messages: List<AiMessage>): String {
         val key = apiKey()
-        require(key.isNotBlank()) {
-            "DeepSeek API Key 未配置，请在 BuildConfig.DEEPSEEK_API_KEY 或环境变量 DEEPSEEK_API_KEY 中设置。"
-        }
 
         val url = "$baseUrl/chat/completions"
         val jsonBody = buildRequestBody(messages)

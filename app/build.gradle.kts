@@ -14,8 +14,8 @@ android {
         applicationId = "com.repea.studytrack"
         minSdk = 29
         targetSdk = 36
-        versionCode = 30000
-        versionName = "V3.0.0"
+        versionCode = 30001
+        versionName = "V3.0.1"
 
         // DeepSeek AI 配置
         // 使用 v1 前缀以兼容 OpenAI 风格的 /chat/completions 接口
