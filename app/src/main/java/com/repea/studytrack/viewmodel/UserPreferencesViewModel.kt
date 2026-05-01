@@ -2,7 +2,7 @@ package com.repea.studytrack.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.repea.studytrack.repository.ForegroundMode
+import com.repea.studytrack.repository.AppThemeStyle
 import com.repea.studytrack.repository.UserPreferencesRepository
 import com.repea.studytrack.repository.UserPreferencesState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,16 +19,16 @@ class UserPreferencesViewModel @Inject constructor(
     val preferences: StateFlow<UserPreferencesState> = repository.preferences
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserPreferencesState())
 
-    fun setWallpaperUri(uri: String?) {
-        viewModelScope.launch { repository.setWallpaperUri(uri) }
+    fun setThemeStyle(style: AppThemeStyle) {
+        viewModelScope.launch { repository.setThemeStyle(style) }
     }
 
-    fun setForegroundMode(mode: ForegroundMode) {
-        viewModelScope.launch { repository.setForegroundMode(mode) }
+    fun setCustomWallpaperUri(uri: String?) {
+        viewModelScope.launch { repository.setCustomWallpaperUri(uri) }
     }
 
-    fun setLiquidGlassEnabled(enabled: Boolean) {
-        viewModelScope.launch { repository.setLiquidGlassEnabled(enabled) }
+    fun clearCustomWallpaper() {
+        viewModelScope.launch { repository.setCustomWallpaperUri(null) }
     }
 
     fun setGlassBlurRadiusDp(value: Float) {
@@ -59,40 +59,8 @@ class UserPreferencesViewModel @Inject constructor(
         viewModelScope.launch { repository.setGlassChromaticAberration(enabled) }
     }
 
-    fun setGradeA100(value: Float) {
-        viewModelScope.launch { repository.setGradeA100(value) }
-    }
-
-    fun setGradeB100(value: Float) {
-        viewModelScope.launch { repository.setGradeB100(value) }
-    }
-
-    fun setGradeC100(value: Float) {
-        viewModelScope.launch { repository.setGradeC100(value) }
-    }
-
-    fun setGradeA70(value: Float) {
-        viewModelScope.launch { repository.setGradeA70(value) }
-    }
-
-    fun setGradeB70(value: Float) {
-        viewModelScope.launch { repository.setGradeB70(value) }
-    }
-
-    fun setGradeC70(value: Float) {
-        viewModelScope.launch { repository.setGradeC70(value) }
-    }
-
-    fun setGradeA60(value: Float) {
-        viewModelScope.launch { repository.setGradeA60(value) }
-    }
-
-    fun setGradeB60(value: Float) {
-        viewModelScope.launch { repository.setGradeB60(value) }
-    }
-
-    fun setGradeC60(value: Float) {
-        viewModelScope.launch { repository.setGradeC60(value) }
+    fun setCurrentSemesterId(semesterId: Int) {
+        viewModelScope.launch { repository.setCurrentSemesterId(semesterId) }
     }
 }
 

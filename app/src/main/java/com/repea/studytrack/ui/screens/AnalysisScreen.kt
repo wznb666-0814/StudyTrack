@@ -1,47 +1,75 @@
 package com.repea.studytrack.ui.screens
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavController
 import com.repea.studytrack.data.local.entity.ExamWithSubject
 import com.repea.studytrack.data.local.entity.Subject
+import com.repea.studytrack.repository.UserPreferencesState
 import com.repea.studytrack.ui.components.GlassCard
 import com.repea.studytrack.ui.components.GlassDropdownMenu
-import com.repea.studytrack.ui.components.MarkdownText
 import com.repea.studytrack.ui.components.SimpleLineChart
+import com.repea.studytrack.ui.components.StudyCapsuleButton
+import com.repea.studytrack.ui.components.StudyHeroCard
+import com.repea.studytrack.ui.components.StudyMetricCard
+import com.repea.studytrack.ui.components.StudySectionHeader
 import com.repea.studytrack.utils.GradeCalculator
 import com.repea.studytrack.viewmodel.AnalysisViewModel
+import com.repea.studytrack.viewmodel.ExamViewModel
+import com.repea.studytrack.viewmodel.UserManagerViewModel
 import com.repea.studytrack.viewmodel.UserPreferencesViewModel
-import com.repea.studytrack.viewmodel.ExamViewModel // Assuming ExamViewModel has subjects flow
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalysisScreen(
-    navController: NavController,
     viewModel: AnalysisViewModel = hiltViewModel(),
-    examViewModel: ExamViewModel = hiltViewModel(), // Inject ExamViewModel to get subjects
+    examViewModel: ExamViewModel = hiltViewModel(),
+    userManagerViewModel: UserManagerViewModel = hiltViewModel(),
     prefsViewModel: UserPreferencesViewModel = hiltViewModel()
 ) {
     val allRecords by viewModel.allRecords.collectAsState()
     val subjects by examViewModel.subjects.collectAsState()
+    val userPrefs by userManagerViewModel.prefs.collectAsState()
+    val semesters by userManagerViewModel.semesters.collectAsState()
     val gradePrefs by prefsViewModel.preferences.collectAsState()
+    val currentSemester = remember(semesters, userPrefs.currentSemesterId) {
+        semesters.firstOrNull { it.id == userPrefs.currentSemesterId } ?: semesters.firstOrNull()
+    }
 
     var selectedSubject by remember { mutableStateOf<Subject?>(null) }
     var showFilterMenu by remember { mutableStateOf(false) }
 
-    // Filter records by subject
     val filteredRecords = remember(allRecords, selectedSubject) {
         if (selectedSubject == null) {
             allRecords
@@ -49,112 +77,148 @@ fun AnalysisScreen(
             allRecords.filter { it.subject.id == selectedSubject!!.id }
         }
     }
-    
-    // Group records by subject
     val recordsBySubject = filteredRecords.groupBy { it.subject }
+    val averageScore = remember(filteredRecords) {
+        if (filteredRecords.isEmpty()) 0.0 else filteredRecords.map { it.exam.score }.average()
+    }
+    val bestScore = filteredRecords.maxOfOrNull { it.exam.score } ?: 0.0
 
-    Scaffold(
-        containerColor = androidx.compose.ui.graphics.Color.Transparent,
-        topBar = {
-            TopAppBar(
-                title = { Text("成绩分析", color = MaterialTheme.colorScheme.onSurface) },
-                actions = {
-                    Box {
-                        TextButton(onClick = { showFilterMenu = true }) {
-                            Text(selectedSubject?.name ?: "全部科目", color = MaterialTheme.colorScheme.onSurface)
-                        }
-                        GlassDropdownMenu(
-                            expanded = showFilterMenu,
-                            onDismissRequest = { showFilterMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("全部科目") },
-                                onClick = {
-                                    selectedSubject = null
-                                    showFilterMenu = false
-                                }
-                            )
-                            subjects.forEach { subject ->
-                                DropdownMenuItem(
-                                    text = { Text(subject.name) },
-                                    onClick = {
-                                        selectedSubject = subject
-                                        showFilterMenu = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    actionIconContentColor = MaterialTheme.colorScheme.onSurface
-                )
-            )
-        }
-    ) { paddingValues ->
-        BoxWithConstraints(
+    Scaffold(containerColor = Color.Transparent) { paddingValues ->
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(bottom = 110.dp)
         ) {
-            val isWideScreen = maxWidth > 600.dp
-
-            if (isWideScreen) {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 400.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(bottom = 96.dp)
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "成绩分析",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "查看各科成绩、评级与排名走势",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "当前学期：${currentSemester?.name ?: "默认学期"}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            item {
+                StudyHeroCard(
+                    title = "分析概览",
+                    value = if (filteredRecords.isEmpty()) "--" else String.format("%.1f", averageScore),
+                    badge = "${filteredRecords.size} 次考试",
+                    subtitle = buildString {
+                        append(currentSemester?.name ?: "默认学期")
+                        append(" · ")
+                        append(selectedSubject?.name ?: "全部科目")
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    if (recordsBySubject.isEmpty()) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("暂无数据可分析", color = MaterialTheme.colorScheme.onSurface)
+                    StudyMetricCard(
+                        title = "最高分",
+                        value = if (filteredRecords.isEmpty()) "--" else formatAnalysisScore(bestScore),
+                        note = "当前筛选",
+                        modifier = Modifier.weight(1f)
+                    )
+                    StudyMetricCard(
+                        title = "科目数",
+                        value = recordsBySubject.size.toString(),
+                        note = "参与分析",
+                        modifier = Modifier.weight(1f),
+                        accent = Color(0xFF24B46B)
+                    )
+                }
+            }
+            item {
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    contentPadding = 14.dp
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        StudySectionHeader(title = "分析筛选")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            StudyCapsuleButton(
+                                selected = selectedSubject == null,
+                                text = "全部",
+                                onClick = { selectedSubject = null }
+                            )
+                            Box {
+                                StudyCapsuleButton(
+                                    selected = selectedSubject != null,
+                                    text = selectedSubject?.name ?: "选择科目",
+                                    onClick = { showFilterMenu = true }
+                                )
+                                GlassDropdownMenu(
+                                    expanded = showFilterMenu,
+                                    onDismissRequest = { showFilterMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("全部科目") },
+                                        onClick = {
+                                            selectedSubject = null
+                                            showFilterMenu = false
+                                        }
+                                    )
+                                    subjects.forEach { subject ->
+                                        DropdownMenuItem(
+                                            text = { Text(subject.name) },
+                                            onClick = {
+                                                selectedSubject = subject
+                                                showFilterMenu = false
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         }
-                    } else {
-                        items(recordsBySubject.entries.toList()) { (subject, records) ->
-                            SubjectAnalysisCard(
-                                navController = navController,
-                                subject = subject,
-                                records = records,
-                                viewModel = viewModel,
-                                gradePrefs = gradePrefs
+                    }
+                }
+            }
+            item {
+                StudySectionHeader(title = "分析结果")
+            }
+            if (recordsBySubject.isEmpty()) {
+                item {
+                    GlassCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "暂无数据可分析",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "先录入一些成绩后，这里会展示趋势、评级与排名变化。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 }
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(bottom = 96.dp)
-                ) {
-                    if (recordsBySubject.isEmpty()) {
-                        item {
-                            Box(
-                                modifier = Modifier.fillMaxWidth(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("暂无数据可分析", color = MaterialTheme.colorScheme.onSurface)
-                            }
-                        }
-                    } else {
-                        items(recordsBySubject.entries.toList()) { (subject, records) ->
-                            SubjectAnalysisCard(
-                                navController = navController,
-                                subject = subject,
-                                records = records,
-                                viewModel = viewModel,
-                                gradePrefs = gradePrefs
-                            )
-                        }
-                    }
+                items(recordsBySubject.entries.toList()) { (subject, records) ->
+                    SubjectAnalysisCard(
+                        subject = subject,
+                        records = records,
+                        gradePrefs = gradePrefs
+                    )
                 }
             }
         }
@@ -163,213 +227,151 @@ fun AnalysisScreen(
 
 @Composable
 fun SubjectAnalysisCard(
-    navController: NavController,
     subject: Subject,
     records: List<ExamWithSubject>,
-    viewModel: AnalysisViewModel,
-    gradePrefs: com.repea.studytrack.repository.UserPreferencesState
+    gradePrefs: UserPreferencesState
 ) {
     if (records.isEmpty()) return
 
     val sortedRecords = records.sortedBy { it.exam.examDate }
     val scores = sortedRecords.map { it.exam.score }
-    
     val avgScore = scores.average()
     val maxScore = scores.maxOrNull() ?: 0.0
     val minScore = scores.minOrNull() ?: 0.0
-    
-    GlassCard(modifier = Modifier.fillMaxWidth()) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // Header
+    val latestRecord = sortedRecords.last()
+    val latestGrade = GradeCalculator.calculateGradeCustom(
+        score = latestRecord.exam.score,
+        fullScore = subject.fullScore,
+        prefs = gradePrefs
+    )
+
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        contentPadding = 16.dp
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(subject.name, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
-                Text(
-                    "满分: ${subject.fullScore.toInt()}",
-                    style = MaterialTheme.typography.bodyMedium, 
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = subject.name.take(1),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Spacer(modifier = Modifier.size(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = subject.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "满分 ${formatAnalysisScore(subject.fullScore)} · 最新评级 $latestGrade",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-            
-            Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-
-            // Statistics
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                StatItem("平均分", String.format("%.1f", avgScore))
-                StatItem("最高分", String.format("%.1f", maxScore))
-                StatItem("最低分", String.format("%.1f", minScore))
+                StudyMetricCard(
+                    title = "平均分",
+                    value = String.format("%.1f", avgScore),
+                    note = "共 ${records.size} 次",
+                    modifier = Modifier.weight(1f)
+                )
+                StudyMetricCard(
+                    title = "最高分",
+                    value = String.format("%.1f", maxScore),
+                    note = "最低 ${String.format("%.1f", minScore)}",
+                    modifier = Modifier.weight(1f),
+                    accent = Color(0xFF24B46B)
+                )
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Score Chart
-            Text("成绩趋势", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+            StudySectionHeader(title = "成绩趋势")
             SimpleLineChart(
                 dataPoints = scores,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp),
+                    .height(210.dp),
                 lineColor = MaterialTheme.colorScheme.primary,
                 textColor = MaterialTheme.colorScheme.onSurface
             )
-            
-            // Latest Grade
-            val latestRecord = sortedRecords.last()
-        val grade = GradeCalculator.calculateGradeCustom(
-            score = latestRecord.exam.score,
-            fullScore = subject.fullScore,
-            prefs = gradePrefs
-        )
-            Text(
-                "最新评级: $grade", 
-                style = MaterialTheme.typography.bodyLarge, 
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.align(Alignment.End)
-            )
-
-            // Rankings Charts
             val classRanks = sortedRecords.mapNotNull { it.exam.classRank?.toDouble() }
-            if (classRanks.isNotEmpty() && classRanks.size > 1) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("班级排名趋势", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+            if (classRanks.size > 1) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
+                Text(
+                    text = "班级排名趋势",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 SimpleLineChart(
                     dataPoints = classRanks,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(150.dp),
-                    lineColor = Color(0xFF4CAF50), // Green for rank
+                    lineColor = Color(0xFF24B46B),
                     textColor = MaterialTheme.colorScheme.onSurface,
                     isRanking = true
                 )
             }
-
             val gradeRanks = sortedRecords.mapNotNull { it.exam.gradeRank?.toDouble() }
-            if (gradeRanks.isNotEmpty() && gradeRanks.size > 1) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("年级排名趋势", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+            if (gradeRanks.size > 1) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
+                Text(
+                    text = "年级排名趋势",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 SimpleLineChart(
                     dataPoints = gradeRanks,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(150.dp),
-                    lineColor = Color(0xFFFF9800), // Orange for rank
+                    lineColor = Color(0xFFFFA63D),
                     textColor = MaterialTheme.colorScheme.onSurface,
                     isRanking = true
                 )
             }
-            
             val districtRanks = sortedRecords.mapNotNull { it.exam.districtRank?.toDouble() }
-            if (districtRanks.isNotEmpty() && districtRanks.size > 1) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("全区排名趋势", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+            if (districtRanks.size > 1) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
+                Text(
+                    text = "全区排名趋势",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 SimpleLineChart(
                     dataPoints = districtRanks,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(150.dp),
-                    lineColor = Color(0xFF2196F3), // Blue for rank
+                    lineColor = Color(0xFF5C7CFA),
                     textColor = MaterialTheme.colorScheme.onSurface,
                     isRanking = true
                 )
-            }
-
-            // AI 学习建议（结合该科目的分数与排名趋势）
-            val subjectAdvices by viewModel.subjectAdvices.collectAsState()
-            val loadingSubjects by viewModel.loadingSubjects.collectAsState()
-            val errorSubjects by viewModel.errorSubjects.collectAsState()
-
-            val advice = subjectAdvices[subject.id]
-            val isLoading = loadingSubjects.contains(subject.id)
-            val error = errorSubjects[subject.id]
-
-            LaunchedEffect(subject.id, records.size) {
-                viewModel.requestAdviceForSubject(
-                    subjectId = subject.id,
-                    subjectName = subject.name,
-                    fullScore = subject.fullScore,
-                    records = records
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f))
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                "AI 学习建议",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            if (isLoading && advice == null) {
-                LinearProgressIndicator(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                )
-            }
-
-            when {
-                advice != null -> {
-                    MarkdownText(
-                        text = advice,
-                        modifier = Modifier.padding(top = 8.dp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
-                    )
-                }
-
-                !isLoading && error != null -> {
-                    Text(
-                        text = "获取 AI 建议失败：$error",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-
-                !isLoading -> {
-                    Text(
-                        text = "正在为你分析这门课的成绩与排名，请稍候片刻…",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(
-                    onClick = {
-                        navController.navigate(
-                            com.repea.studytrack.ui.navigation.Screen.AiChat.route.replace(
-                                "{subjectId}",
-                                subject.id.toString()
-                            )
-                        )
-                    }
-                ) {
-                    Text("对话")
-                }
             }
         }
     }
 }
 
-@Composable
-fun StatItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
-        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+private fun formatAnalysisScore(value: Double): String {
+    return if (value % 1.0 == 0.0) {
+        value.toInt().toString()
+    } else {
+        String.format("%.1f", value)
     }
 }

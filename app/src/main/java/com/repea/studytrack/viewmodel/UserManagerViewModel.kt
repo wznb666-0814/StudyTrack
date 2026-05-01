@@ -2,6 +2,7 @@ package com.repea.studytrack.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.repea.studytrack.data.local.entity.Semester
 import com.repea.studytrack.data.local.entity.UserProfile
 import com.repea.studytrack.repository.StudyRepository
 import com.repea.studytrack.repository.UserPreferencesRepository
@@ -22,6 +23,9 @@ class UserManagerViewModel @Inject constructor(
     val users: StateFlow<List<UserProfile>> = repository.getAllUsers()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val semesters: StateFlow<List<Semester>> = repository.getAllSemesters()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val prefs = prefsRepository.preferences
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.repea.studytrack.repository.UserPreferencesState())
 
@@ -34,18 +38,30 @@ class UserManagerViewModel @Inject constructor(
     private suspend fun ensureDefaultUser() {
         val currentUsers = repository.getAllUsers().first()
 
-        // 初次启动：没有任何用户时创建一个默认用户，并设置为当前用户
         if (currentUsers.isEmpty()) {
             val newId = repository.addUser(UserProfile(name = "默认用户"))
             prefsRepository.setCurrentUserId(newId.toInt())
+            ensureCurrentSemesterAvailable()
             return
         }
 
-        // 不再自动删除名称相同的用户，也不随意修改已有的 currentUserId，
-        // 只在当前 ID 已无效（例如数据迁移异常）时，兜底切到第一个用户。
         val prefs = prefsRepository.preferences.first()
         if (currentUsers.none { it.id == prefs.currentUserId }) {
             prefsRepository.setCurrentUserId(currentUsers.first().id)
+        }
+        ensureCurrentSemesterAvailable()
+    }
+
+    private suspend fun ensureCurrentSemesterAvailable() {
+        val prefs = prefsRepository.preferences.first()
+        val semesters = repository.getAllSemesters().first()
+        if (semesters.isEmpty()) {
+            val newId = repository.addSemester(Semester(name = "默认学期"))
+            prefsRepository.setCurrentSemesterId(newId.toInt())
+            return
+        }
+        if (semesters.none { it.id == prefs.currentSemesterId }) {
+            prefsRepository.setCurrentSemesterId(semesters.first().id)
         }
     }
 
@@ -58,6 +74,7 @@ class UserManagerViewModel @Inject constructor(
     fun setCurrentUser(userId: Int) {
         viewModelScope.launch {
             prefsRepository.setCurrentUserId(userId)
+            ensureCurrentSemesterAvailable()
         }
     }
 
@@ -66,11 +83,53 @@ class UserManagerViewModel @Inject constructor(
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
             val newId = repository.addUser(UserProfile(name = trimmed))
-            // 如果当前没有有效用户，则切换到新用户
             val currentPrefs = prefsRepository.preferences.first()
             if (users.value.isEmpty() || users.value.none { it.id == currentPrefs.currentUserId }) {
                 prefsRepository.setCurrentUserId(newId.toInt())
+                ensureCurrentSemesterAvailable()
             }
+        }
+    }
+
+    fun initializePrimaryUser(name: String, semesterName: String = "默认学期") {
+        val trimmed = name.trim()
+        val trimmedSemester = semesterName.trim().ifBlank { "默认学期" }
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            val currentPrefs = prefsRepository.preferences.first()
+            val currentUsers = repository.getAllUsers().first()
+            val currentUser = currentUsers.firstOrNull { it.id == currentPrefs.currentUserId }
+                ?: currentUsers.firstOrNull()
+
+            if (currentUser == null) {
+                val newId = repository.addUser(UserProfile(name = trimmed))
+                prefsRepository.setCurrentUserId(newId.toInt())
+            } else {
+                repository.updateUser(currentUser.copy(name = trimmed))
+                prefsRepository.setCurrentUserId(currentUser.id)
+            }
+            val semestersForCurrentUser = repository.getAllSemesters().first()
+            val currentSemester = semestersForCurrentUser.firstOrNull { it.id == currentPrefs.currentSemesterId }
+                ?: semestersForCurrentUser.firstOrNull()
+            val targetSemester = semestersForCurrentUser.firstOrNull { it.name == trimmedSemester }
+
+            when {
+                targetSemester != null -> {
+                    prefsRepository.setCurrentSemesterId(targetSemester.id)
+                }
+                currentSemester != null &&
+                    semestersForCurrentUser.size == 1 &&
+                    currentSemester.name == "默认学期" -> {
+                    repository.updateSemester(currentSemester.copy(name = trimmedSemester))
+                    prefsRepository.setCurrentSemesterId(currentSemester.id)
+                }
+                else -> {
+                    val semesterId = repository.addSemester(Semester(name = trimmedSemester)).toInt()
+                    prefsRepository.setCurrentSemesterId(semesterId)
+                }
+            }
+
+            ensureCurrentSemesterAvailable()
         }
     }
 
@@ -95,6 +154,7 @@ class UserManagerViewModel @Inject constructor(
                 val remaining = repository.getAllUsers().first().firstOrNull()
                 if (remaining != null) {
                     prefsRepository.setCurrentUserId(remaining.id)
+                    ensureCurrentSemesterAvailable()
                 }
             }
         }

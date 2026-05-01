@@ -1,19 +1,55 @@
 package com.repea.studytrack.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -21,6 +57,11 @@ import androidx.navigation.NavController
 import com.repea.studytrack.data.local.entity.ExamType
 import com.repea.studytrack.data.local.entity.Subject
 import com.repea.studytrack.ui.components.GlassCard
+import com.repea.studytrack.ui.components.GlassDropdownMenu
+import com.repea.studytrack.ui.components.StudyCapsuleButton
+import com.repea.studytrack.ui.components.StudyHeroCard
+import com.repea.studytrack.ui.components.StudySectionHeader
+import com.repea.studytrack.ui.components.StudyTextField
 import com.repea.studytrack.viewmodel.ExamViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -41,7 +82,9 @@ fun BatchAddExamScreen(
     navController: NavController,
     viewModel: ExamViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val subjects by viewModel.subjects.collectAsState()
+    val allRecords by viewModel.allRecords.collectAsState()
 
     var examName by remember { mutableStateOf("") }
     var selectedExamType by remember { mutableStateOf(ExamType.MONTHLY) }
@@ -88,112 +131,136 @@ fun BatchAddExamScreen(
         }
     }
 
-    Scaffold(
-        containerColor = androidx.compose.ui.graphics.Color.Transparent,
-        topBar = {
-            TopAppBar(
-                title = { Text("批量添加成绩", color = MaterialTheme.colorScheme.onSurface) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
-            )
-        }
-    ) { paddingValues ->
+    Scaffold(containerColor = Color.Transparent) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    OutlinedTextField(
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "批量添加成绩",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "一次录入同场考试下的多门学科成绩",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            StudyHeroCard(
+                title = "批量录入",
+                value = entries.size.toString(),
+                badge = selectedExamType.label,
+                subtitle = "当前待录入 ${entries.count { it.subject != null && it.score.isNotBlank() }} 门科目",
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                contentPadding = 16.dp
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    StudySectionHeader(title = "考试信息")
+                    StudyTextField(
                         value = examName,
                         onValueChange = { examName = it },
-                        label = { Text("考试主题（如：九下第一次月考）") },
-                        modifier = Modifier.fillMaxWidth()
+                        label = "考试主题"
                     )
 
-                    OutlinedTextField(
-                        value = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(examDate)),
-                        onValueChange = {},
-                        label = { Text("考试日期") },
-                        readOnly = true,
-                        trailingIcon = {
-                            IconButton(onClick = { showDatePicker = true }) {
-                                Icon(Icons.Default.DateRange, contentDescription = "选择日期")
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showDatePicker = true },
-                        enabled = false,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                            disabledBorderColor = MaterialTheme.colorScheme.outline,
-                            disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    )
-
-                    ExposedDropdownMenuBox(
-                        expanded = examTypeExpanded,
-                        onExpandedChange = { examTypeExpanded = !examTypeExpanded }
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f),
+                        onClick = { showDatePicker = true }
                     ) {
-                        OutlinedTextField(
-                            value = selectedExamType.label,
-                            onValueChange = {},
-                            readOnly = true,
+                        Row(
                             modifier = Modifier
-                                .menuAnchor()
-                                .fillMaxWidth(),
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = examTypeExpanded) },
-                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = examTypeExpanded,
-                            onDismissRequest = { examTypeExpanded = false },
-                            containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                            tonalElevation = 0.dp,
-                            shadowElevation = 0.dp
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            GlassCard(contentPadding = 8.dp) {
-                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    ExamType.values().forEach { type ->
-                                        DropdownMenuItem(
-                                            text = { Text(type.label) },
-                                            onClick = {
-                                                selectedExamType = type
-                                                examTypeExpanded = false
-                                            }
-                                        )
-                                    }
-                                }
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    text = "考试日期",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(examDate)),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
                             }
+                            Icon(
+                                imageVector = Icons.Default.DateRange,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    StudySectionHeader(title = "考试类型")
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ExamType.values().forEach { type ->
+                            StudyCapsuleButton(
+                                selected = selectedExamType == type,
+                                text = type.label,
+                                onClick = { selectedExamType = type }
+                            )
                         }
                     }
                 }
             }
 
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                contentPadding = 16.dp
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("科目成绩列表", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                        IconButton(
+                        Text(
+                            text = "科目成绩列表",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Surface(
                             onClick = {
                                 entries = entries + SubjectEntryUiState(id = nextId++)
-                            }
+                            },
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.primary
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "添加科目")
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "添加科目",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text("添加", color = MaterialTheme.colorScheme.onPrimary)
+                            }
                         }
                     }
 
@@ -228,13 +295,22 @@ fun BatchAddExamScreen(
                 )
             }
 
-            Button(
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.primary,
                 onClick = {
                     errorMessage = null
 
                     if (examName.isBlank()) {
                         errorMessage = "请先填写考试主题。"
-                        return@Button
+                        return@Surface
+                    }
+
+                    val selectedSubjectIds = entries.mapNotNull { it.subject?.id }
+                    if (selectedSubjectIds.size != selectedSubjectIds.distinct().size) {
+                        errorMessage = "同一场考试中不能重复选择同一科目。"
+                        return@Surface
                     }
 
                     val validEntries = entries.mapNotNull { e ->
@@ -246,10 +322,27 @@ fun BatchAddExamScreen(
 
                     if (validEntries.isEmpty()) {
                         errorMessage = "请至少为一个科目选择科目并填写有效分数。"
-                        return@Button
+                        return@Surface
                     }
 
-                    validEntries.forEach { (subject, scoreVal, e) ->
+                    val duplicatedEntries = validEntries.filter { (subject, scoreVal, _) ->
+                        allRecords.any {
+                            it.exam.subjectId == subject.id &&
+                                it.exam.examName == examName &&
+                                it.exam.examDate == examDate &&
+                                it.exam.score == scoreVal
+                        }
+                    }
+                    val entriesToSave = validEntries.filterNot { candidate ->
+                        duplicatedEntries.any { duplicated -> duplicated.first.id == candidate.first.id }
+                    }
+
+                    if (entriesToSave.isEmpty()) {
+                        errorMessage = "待保存记录均已存在，未重复写入。"
+                        return@Surface
+                    }
+
+                    entriesToSave.forEach { (subject, scoreVal, e) ->
                         viewModel.addRecord(
                             subjectId = subject.id,
                             examName = examName,
@@ -264,11 +357,28 @@ fun BatchAddExamScreen(
                         )
                     }
 
+                    val toastMessage = if (duplicatedEntries.isEmpty()) {
+                        "已保存 ${entriesToSave.size} 条成绩"
+                    } else {
+                        "已保存 ${entriesToSave.size} 条，跳过重复 ${duplicatedEntries.size} 条"
+                    }
+                    android.widget.Toast.makeText(context, toastMessage, android.widget.Toast.LENGTH_LONG).show()
                     navController.popBackStack()
-                },
-                modifier = Modifier.fillMaxWidth()
+                }
             ) {
-                Text("保存全部成绩")
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "保存全部成绩",
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }
@@ -284,17 +394,30 @@ private fun SubjectEntryCard(
 ) {
     var subjectExpanded by remember(entry.id) { mutableStateOf(false) }
 
-    GlassCard(modifier = Modifier.fillMaxWidth()) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        contentPadding = 14.dp
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("科目", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    text = entry.subject?.name ?: "未选择科目",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold
+                )
                 if (subjects.size > 1) {
                     IconButton(onClick = onRemove) {
-                        Icon(Icons.Default.Delete, contentDescription = "移除此科目")
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "移除此科目",
+                            tint = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
             }
@@ -310,74 +433,75 @@ private fun SubjectEntryCard(
                     expanded = subjectExpanded,
                     onExpandedChange = { subjectExpanded = !subjectExpanded }
                 ) {
-                    OutlinedTextField(
-                        value = entry.subject?.name ?: "选择科目",
+                    StudyTextField(
+                        value = entry.subject?.name ?: "",
                         onValueChange = {},
+                        label = "科目",
                         readOnly = true,
                         modifier = Modifier
-                            .menuAnchor()
+                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                             .fillMaxWidth(),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = subjectExpanded) },
-                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                        trailing = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = subjectExpanded) }
                     )
-                    ExposedDropdownMenu(
+                    GlassDropdownMenu(
                         expanded = subjectExpanded,
-                        onDismissRequest = { subjectExpanded = false },
-                        containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                        tonalElevation = 0.dp,
-                        shadowElevation = 0.dp
+                        onDismissRequest = { subjectExpanded = false }
                     ) {
-                        GlassCard(contentPadding = 8.dp) {
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                subjects.forEach { subject ->
-                                    DropdownMenuItem(
-                                        text = { Text(subject.name) },
-                                        onClick = {
-                                            onChange(entry.copy(subject = subject))
-                                            subjectExpanded = false
-                                        }
-                                    )
+                        subjects.forEach { subject ->
+                            DropdownMenuItem(
+                                text = { Text(subject.name) },
+                                onClick = {
+                                    onChange(entry.copy(subject = subject))
+                                    subjectExpanded = false
                                 }
-                            }
+                            )
                         }
                     }
                 }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
+                StudyTextField(
                     value = entry.score,
                     onValueChange = { onChange(entry.copy(score = it)) },
-                    label = { Text("分数") },
+                    label = "分数",
                     modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    supporting = {
+                        Text(
+                            entry.subject?.let { "满分 ${formatBatchScore(it.fullScore)}" } ?: "请输入分数"
+                        )
+                    }
                 )
-                OutlinedTextField(
+                StudyTextField(
                     value = entry.classRank,
                     onValueChange = { onChange(entry.copy(classRank = it)) },
-                    label = { Text("班排") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    label = "班排",
+                    modifier = Modifier.weight(1f)
                 )
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
+                StudyTextField(
                     value = entry.gradeRank,
                     onValueChange = { onChange(entry.copy(gradeRank = it)) },
-                    label = { Text("年排") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    label = "年排",
+                    modifier = Modifier.weight(1f)
                 )
-                OutlinedTextField(
+                StudyTextField(
                     value = entry.districtRank,
                     onValueChange = { onChange(entry.copy(districtRank = it)) },
-                    label = { Text("区排") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    label = "区排",
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
     }
 }
 
+private fun formatBatchScore(value: Double): String {
+    return if (value % 1.0 == 0.0) {
+        value.toInt().toString()
+    } else {
+        String.format("%.1f", value)
+    }
+}

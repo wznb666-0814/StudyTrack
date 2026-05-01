@@ -6,6 +6,8 @@ plugins {
     id("com.google.dagger.hilt.android")
 }
 
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 android {
     namespace = "com.repea.studytrack"
     compileSdk = 36
@@ -14,19 +16,8 @@ android {
         applicationId = "com.repea.studytrack"
         minSdk = 29
         targetSdk = 36
-        versionCode = 30001
-        versionName = "V3.0.1"
-
-        // DeepSeek AI 配置
-        // 使用 v1 前缀以兼容 OpenAI 风格的 /chat/completions 接口
-        buildConfigField("String", "DEEPSEEK_BASE_URL", "\"https://api.deepseek.com/v1\"")
-        buildConfigField("String", "DEEPSEEK_MODEL", "\"deepseek-chat\"")
-
-        // 优先从 local.properties 中读取 DEEPSEEK_API_KEY，其次回退为空字符串。
-        // 本仓库不包含真实密钥，请在本地自行配置：
-        //   DEEPSEEK_API_KEY=sk-xxxxxx
-        val deepseekApiKey = project.findProperty("DEEPSEEK_API_KEY") as String? ?: ""
-        buildConfigField("String", "DEEPSEEK_API_KEY", "\"$deepseekApiKey\"")
+        versionCode = 50000
+        versionName = "V5.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -44,12 +35,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
+        }
     }
     buildFeatures {
-        // 启用 BuildConfig 生成，以便使用自定义 buildConfigField
-        buildConfig = true
         compose = true
     }
     packaging {
@@ -82,7 +73,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
 
     // Room
-    val roomVersion = "2.6.1"
+    val roomVersion = "2.8.4"
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
@@ -100,14 +91,11 @@ dependencies {
 
     // Liquid Glass (AndroidLiquidGlass)
     implementation("io.github.kyant0:backdrop:1.0.6")
+    implementation("io.coil-kt:coil-compose:2.7.0")
 
     // Apache POI (Excel)
     implementation("org.apache.poi:poi:5.2.3")
     implementation("org.apache.poi:poi-ooxml:5.2.3")
-
-    // Networking (OkHttp) - for DeepSeek API
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

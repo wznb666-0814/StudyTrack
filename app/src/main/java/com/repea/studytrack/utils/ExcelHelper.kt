@@ -19,33 +19,37 @@ import java.util.Locale
 import javax.inject.Inject
 
 class ExcelHelper @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
-    fun exportToUri(uri: Uri, subjects: List<Subject>, records: List<ExamWithSubject>): Boolean {
+    fun exportToUri(
+        uri: Uri,
+        subjects: List<Subject>,
+        records: List<ExamWithSubject>,
+        semesterName: String
+    ): Boolean {
         val workbook = XSSFWorkbook()
         val sheet = workbook.createSheet("Grades")
 
-        // Header（包含满分列，方便导入时还原满分分值）
         val headerRow = sheet.createRow(0)
-        val headers = arrayOf("科目", "考试名称", "时间", "分数", "满分", "分类", "班排", "年排", "区排", "反思")
+        val headers = arrayOf("学期", "科目", "考试名称", "时间", "分数", "满分", "分类", "班排", "年排", "区排", "反思")
         headers.forEachIndexed { index, title ->
             headerRow.createCell(index).setCellValue(title)
         }
 
-        // Data
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         records.forEachIndexed { index, record ->
             val row = sheet.createRow(index + 1)
-            row.createCell(0).setCellValue(record.subject.name)
-            row.createCell(1).setCellValue(record.exam.examName)
-            row.createCell(2).setCellValue(dateFormat.format(Date(record.exam.examDate)))
-            row.createCell(3).setCellValue(record.exam.score)
-            row.createCell(4).setCellValue(record.subject.fullScore)
-            row.createCell(5).setCellValue(record.exam.examType)
-            row.createCell(6).setCellValue(record.exam.classRank?.toString() ?: "")
-            row.createCell(7).setCellValue(record.exam.gradeRank?.toString() ?: "")
-            row.createCell(8).setCellValue(record.exam.districtRank?.toString() ?: "")
-            row.createCell(9).setCellValue(record.exam.reflection ?: "")
+            row.createCell(0).setCellValue(semesterName)
+            row.createCell(1).setCellValue(record.subject.name)
+            row.createCell(2).setCellValue(record.exam.examName)
+            row.createCell(3).setCellValue(dateFormat.format(Date(record.exam.examDate)))
+            row.createCell(4).setCellValue(record.exam.score)
+            row.createCell(5).setCellValue(record.subject.fullScore)
+            row.createCell(6).setCellValue(record.exam.examType)
+            row.createCell(7).setCellValue(record.exam.classRank?.toString() ?: "")
+            row.createCell(8).setCellValue(record.exam.gradeRank?.toString() ?: "")
+            row.createCell(9).setCellValue(record.exam.districtRank?.toString() ?: "")
+            row.createCell(10).setCellValue(record.exam.reflection ?: "")
         }
 
         return try {
@@ -60,31 +64,34 @@ class ExcelHelper @Inject constructor(
         }
     }
 
-    fun exportToExcel(subjects: List<Subject>, records: List<ExamWithSubject>): Uri? {
+    fun exportToExcel(
+        subjects: List<Subject>,
+        records: List<ExamWithSubject>,
+        semesterName: String
+    ): Uri? {
         val workbook = XSSFWorkbook()
         val sheet = workbook.createSheet("Grades")
 
-        // Header（与导出到指定 Uri 保持一致）
         val headerRow = sheet.createRow(0)
-        val headers = arrayOf("科目", "考试名称", "时间", "分数", "满分", "分类", "班排", "年排", "区排", "反思")
+        val headers = arrayOf("学期", "科目", "考试名称", "时间", "分数", "满分", "分类", "班排", "年排", "区排", "反思")
         headers.forEachIndexed { index, title ->
             headerRow.createCell(index).setCellValue(title)
         }
 
-        // Data
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         records.forEachIndexed { index, record ->
             val row = sheet.createRow(index + 1)
-            row.createCell(0).setCellValue(record.subject.name)
-            row.createCell(1).setCellValue(record.exam.examName)
-            row.createCell(2).setCellValue(dateFormat.format(Date(record.exam.examDate)))
-            row.createCell(3).setCellValue(record.exam.score)
-            row.createCell(4).setCellValue(record.subject.fullScore)
-            row.createCell(5).setCellValue(record.exam.examType)
-            row.createCell(6).setCellValue(record.exam.classRank?.toString() ?: "")
-            row.createCell(7).setCellValue(record.exam.gradeRank?.toString() ?: "")
-            row.createCell(8).setCellValue(record.exam.districtRank?.toString() ?: "")
-            row.createCell(9).setCellValue(record.exam.reflection ?: "")
+            row.createCell(0).setCellValue(semesterName)
+            row.createCell(1).setCellValue(record.subject.name)
+            row.createCell(2).setCellValue(record.exam.examName)
+            row.createCell(3).setCellValue(dateFormat.format(Date(record.exam.examDate)))
+            row.createCell(4).setCellValue(record.exam.score)
+            row.createCell(5).setCellValue(record.subject.fullScore)
+            row.createCell(6).setCellValue(record.exam.examType)
+            row.createCell(7).setCellValue(record.exam.classRank?.toString() ?: "")
+            row.createCell(8).setCellValue(record.exam.gradeRank?.toString() ?: "")
+            row.createCell(9).setCellValue(record.exam.districtRank?.toString() ?: "")
+            row.createCell(10).setCellValue(record.exam.reflection ?: "")
         }
 
         // Save
@@ -134,8 +141,9 @@ class ExcelHelper @Inject constructor(
         return "请按以下格式制作 Excel：\n\n" +
             "• 首行必须为表头（中文字段名），且至少包含：科目、考试名称、时间、分数\n\n" +
             "• 推荐完整表头顺序：\n" +
-            "  1. 科目  2. 考试名称  3. 时间（格式：yyyy-MM-dd）  4. 分数  5. 满分\n" +
-            "  6. 分类（如期中/期末）  7. 班排  8. 年排  9. 区排  10. 反思\n\n" +
+            "  1. 学期  2. 科目  3. 考试名称  4. 时间（格式：yyyy-MM-dd）  5. 分数  6. 满分\n" +
+            "  7. 分类（如期中/期末）  8. 班排  9. 年排  10. 区排  11. 反思\n\n" +
+            "• 学期列可选；若缺失则默认导入到当前所选学期\n\n" +
             "• 从第二行起为数据行；时间需为 yyyy-MM-dd 格式（如 2024-01-15）\n\n" +
             "• 可先使用本应用的「导出成绩到 Excel」生成模板，再按相同格式编辑后导入。"
     }
@@ -182,7 +190,6 @@ class ExcelHelper @Inject constructor(
         }
     }
 
-    // 导入：支持按表头名称动态匹配列，并可选读取「满分」列
     fun readExcel(uri: Uri): List<ParsedRecord> {
         val records = mutableListOf<ParsedRecord>()
         try {
@@ -217,6 +224,7 @@ class ExcelHelper @Inject constructor(
                 if (row.rowNum == 0) continue // Skip header
 
                 val subjectName = getString(row, "科目") ?: continue
+                val semesterName = getString(row, "学期")
                 val examName = getString(row, "考试名称") ?: ""
                 val dateStr = getString(row, "时间") ?: ""
                 val score = getDouble(row, "分数") ?: 0.0
@@ -236,6 +244,7 @@ class ExcelHelper @Inject constructor(
                 records.add(
                     ParsedRecord(
                         subjectName = subjectName,
+                        semesterName = semesterName,
                         examName = examName,
                         date = date,
                         score = score,
@@ -263,6 +272,7 @@ sealed class ExcelImportResult {
 
 data class ParsedRecord(
     val subjectName: String,
+    val semesterName: String?,
     val examName: String,
     val date: Long,
     val score: Double,

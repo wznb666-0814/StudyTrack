@@ -17,8 +17,11 @@ interface SubjectDao {
     @Query("SELECT * FROM subjects WHERE id = :id")
     suspend fun getSubjectById(id: Int): Subject?
 
-    @Query("SELECT * FROM subjects WHERE name = :name AND userId = :userId LIMIT 1")
-    suspend fun getSubjectByName(name: String, userId: Int): Subject?
+    @Query("SELECT * FROM subjects WHERE name = :name AND userId = :userId AND semesterId = :semesterId LIMIT 1")
+    suspend fun getSubjectByName(name: String, userId: Int, semesterId: Int): Subject?
+
+    @Query("SELECT COUNT(*) FROM subjects WHERE userId = :userId AND semesterId = :semesterId")
+    suspend fun countSubjectsInSemester(userId: Int, semesterId: Int): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSubject(subject: Subject): Long

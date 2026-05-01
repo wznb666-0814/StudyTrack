@@ -1,42 +1,72 @@
 package com.repea.studytrack.ui.screens
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavController
-import com.repea.studytrack.ui.components.GlassCard
-import com.repea.studytrack.viewmodel.ImportUiResult
-import com.repea.studytrack.viewmodel.SettingsViewModel
-
-import android.content.Intent
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.res.painterResource
-import com.repea.studytrack.R
-
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import com.repea.studytrack.ui.navigation.Screen
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
+import com.repea.studytrack.R
+import com.repea.studytrack.data.local.entity.Semester
 import com.repea.studytrack.data.local.entity.UserProfile
+import com.repea.studytrack.repository.AppThemeStyle
+import com.repea.studytrack.ui.components.GlassCard
+import com.repea.studytrack.ui.components.StudyCircleIconButton
+import com.repea.studytrack.ui.components.StudySectionHeader
+import com.repea.studytrack.ui.components.StudySettingRow
+import com.repea.studytrack.ui.components.StudyTextField
+import com.repea.studytrack.ui.components.studyPressable
+import com.repea.studytrack.ui.navigation.Screen
+import com.repea.studytrack.viewmodel.ImportUiResult
+import com.repea.studytrack.viewmodel.SettingsViewModel
 import com.repea.studytrack.viewmodel.UserManagerViewModel
 import com.repea.studytrack.viewmodel.UserPreferencesViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     navController: NavController,
@@ -47,26 +77,45 @@ fun SettingsScreen(
     val context = LocalContext.current
     var showImportHelp by remember { mutableStateOf(false) }
     var showUserDialog by remember { mutableStateOf(false) }
+    var showSemesterDialog by remember { mutableStateOf(false) }
     var editingUser by remember { mutableStateOf<UserProfile?>(null) }
+    var editingSemester by remember { mutableStateOf<Semester?>(null) }
+    var deletingSemester by remember { mutableStateOf<Semester?>(null) }
     var userNameInput by remember { mutableStateOf("") }
+    var semesterNameInput by remember { mutableStateOf("") }
+    var importFailureGuide by remember { mutableStateOf<ImportUiResult.Failure?>(null) }
 
     val userPrefs by userManagerViewModel.prefs.collectAsState()
-    val gradePrefs by prefsViewModel.preferences.collectAsState()
+    val appPrefs by prefsViewModel.preferences.collectAsState()
     val users by userManagerViewModel.users.collectAsState()
-    
-    // Listen for export status
+    val semesters by viewModel.semesters.collectAsState()
+    val versionName = remember(context) {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "V5.0.0"
+    }
+    val currentUser = users.firstOrNull { it.id == userPrefs.currentUserId } ?: users.firstOrNull()
+    val currentSemester = semesters.firstOrNull { it.id == appPrefs.currentSemesterId } ?: semesters.firstOrNull()
+
     LaunchedEffect(Unit) {
         viewModel.exportStatus.collect { message ->
             android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
         }
     }
-
-    var importFailureGuide by remember { mutableStateOf<ImportUiResult.Failure?>(null) }
     LaunchedEffect(Unit) {
         viewModel.importResult.collect { result ->
             when (result) {
                 is ImportUiResult.Success -> {
-                    android.widget.Toast.makeText(context, "导入完成", android.widget.Toast.LENGTH_SHORT).show()
+                    val message = buildString {
+                        append("导入完成")
+                        append("，新增 ")
+                        append(result.importedCount)
+                        append(" 条")
+                        if (result.skippedCount > 0) {
+                            append("，跳过重复 ")
+                            append(result.skippedCount)
+                            append(" 条")
+                        }
+                    }
+                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
                 }
                 is ImportUiResult.Failure -> {
                     importFailureGuide = result
@@ -74,14 +123,18 @@ fun SettingsScreen(
             }
         }
     }
-    
+    LaunchedEffect(Unit) {
+        viewModel.semesterMessage.collect { message ->
+            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
         onResult = { uri: Uri? ->
             uri?.let { viewModel.importData(it) }
         }
     )
-
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
         onResult = { uri: Uri? ->
@@ -89,310 +142,389 @@ fun SettingsScreen(
         }
     )
 
-    // Removed LiquidBackground (handled in MainActivity)
-    Scaffold(
-        containerColor = androidx.compose.ui.graphics.Color.Transparent,
-        topBar = {
-            TopAppBar(
-                title = { Text("设置", color = MaterialTheme.colorScheme.onSurface) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    actionIconContentColor = MaterialTheme.colorScheme.onSurface
+    if (showUserDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showUserDialog = false
+                editingUser = null
+                userNameInput = ""
+            },
+            title = { Text(if (editingUser == null) "添加用户" else "重命名用户") },
+            text = {
+                StudyTextField(
+                    value = userNameInput,
+                    onValueChange = { userNameInput = it },
+                    label = "用户名称"
                 )
-            )
-        }
-    ) { paddingValues ->
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val name = userNameInput.trim()
+                        if (name.isNotEmpty()) {
+                            val user = editingUser
+                            if (user == null) {
+                                userManagerViewModel.addUser(name)
+                            } else {
+                                userManagerViewModel.renameUser(user, name)
+                            }
+                            showUserDialog = false
+                            editingUser = null
+                            userNameInput = ""
+                        }
+                    }
+                ) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showUserDialog = false
+                        editingUser = null
+                        userNameInput = ""
+                    }
+                ) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    if (showSemesterDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showSemesterDialog = false
+                editingSemester = null
+                semesterNameInput = ""
+            },
+            title = { Text(if (editingSemester == null) "创建学期" else "重命名学期") },
+            text = {
+                StudyTextField(
+                    value = semesterNameInput,
+                    onValueChange = { semesterNameInput = it },
+                    label = "学期名称"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val name = semesterNameInput.trim()
+                        if (name.isNotEmpty()) {
+                            val semester = editingSemester
+                            if (semester == null) {
+                                viewModel.createSemester(name)
+                            } else {
+                                viewModel.renameSemester(semester, name)
+                            }
+                            showSemesterDialog = false
+                            editingSemester = null
+                            semesterNameInput = ""
+                        }
+                    }
+                ) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showSemesterDialog = false
+                        editingSemester = null
+                        semesterNameInput = ""
+                    }
+                ) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    if (importFailureGuide != null) {
+        AlertDialog(
+            onDismissRequest = { importFailureGuide = null },
+            title = { Text("导入失败") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(importFailureGuide!!.message)
+                    Text(
+                        text = importFailureGuide!!.formatGuide,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { importFailureGuide = null }) {
+                    Text("知道了")
+                }
+            }
+        )
+    }
+
+    if (deletingSemester != null) {
+        AlertDialog(
+            onDismissRequest = { deletingSemester = null },
+            title = { Text("删除学期") },
+            text = {
+                Text("确认删除学期“${deletingSemester!!.name}”吗？仅当该学期没有科目和成绩数据时才会真正删除。")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteSemester(deletingSemester!!)
+                        deletingSemester = null
+                    }
+                ) {
+                    Text("确认删除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingSemester = null }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    Scaffold(containerColor = androidx.compose.ui.graphics.Color.Transparent) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // App Logo
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.logo),
-                    contentDescription = "App Logo",
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(RoundedCornerShape(24.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "设置",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "管理主题、学期、数据与个人资料",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                color = MaterialTheme.colorScheme.primary
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { navController.navigate(Screen.Personalization.route) }
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("个性化设置", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            "壁纸、文字与图标颜色、液态玻璃参数",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                    }
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    Image(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "应用图标",
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(20.dp))
                     )
-                }
-            }
-
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("自定义成绩等级算法", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                    Text(
-                        text = "为不同满分的科目设置 A/B/C 等级的起始分值（单位：分）。\nA 等级：分数 ≥ A 起始分；B 等级：分数 ≥ B 起始分；C 等级：分数 ≥ C 起始分；否则为 D 等级。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-
-                    // 满分 100 分
-                    Text("满分 100 分科目", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                    var a100 by remember(gradePrefs.gradeA100) { mutableStateOf(gradePrefs.gradeA100.toString()) }
-                    var b100 by remember(gradePrefs.gradeB100) { mutableStateOf(gradePrefs.gradeB100.toString()) }
-                    var c100 by remember(gradePrefs.gradeC100) { mutableStateOf(gradePrefs.gradeC100.toString()) }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = a100,
-                            onValueChange = {
-                                a100 = it
-                                it.toFloatOrNull()?.let { v -> prefsViewModel.setGradeA100(v) }
-                            },
-                            label = { Text("A 起始分") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = b100,
-                            onValueChange = {
-                                b100 = it
-                                it.toFloatOrNull()?.let { v -> prefsViewModel.setGradeB100(v) }
-                            },
-                            label = { Text("B 起始分") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = c100,
-                            onValueChange = {
-                                c100 = it
-                                it.toFloatOrNull()?.let { v -> prefsViewModel.setGradeC100(v) }
-                            },
-                            label = { Text("C 起始分") },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    // 满分 70 分
-                    Text("满分 70 分科目", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                    var a70 by remember(gradePrefs.gradeA70) { mutableStateOf(gradePrefs.gradeA70.toString()) }
-                    var b70 by remember(gradePrefs.gradeB70) { mutableStateOf(gradePrefs.gradeB70.toString()) }
-                    var c70 by remember(gradePrefs.gradeC70) { mutableStateOf(gradePrefs.gradeC70.toString()) }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = a70,
-                            onValueChange = {
-                                a70 = it
-                                it.toFloatOrNull()?.let { v -> prefsViewModel.setGradeA70(v) }
-                            },
-                            label = { Text("A 起始分") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = b70,
-                            onValueChange = {
-                                b70 = it
-                                it.toFloatOrNull()?.let { v -> prefsViewModel.setGradeB70(v) }
-                            },
-                            label = { Text("B 起始分") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = c70,
-                            onValueChange = {
-                                c70 = it
-                                it.toFloatOrNull()?.let { v -> prefsViewModel.setGradeC70(v) }
-                            },
-                            label = { Text("C 起始分") },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    // 满分 60 分
-                    Text("满分 60 分科目", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                    var a60 by remember(gradePrefs.gradeA60) { mutableStateOf(gradePrefs.gradeA60.toString()) }
-                    var b60 by remember(gradePrefs.gradeB60) { mutableStateOf(gradePrefs.gradeB60.toString()) }
-                    var c60 by remember(gradePrefs.gradeC60) { mutableStateOf(gradePrefs.gradeC60.toString()) }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = a60,
-                            onValueChange = {
-                                a60 = it
-                                it.toFloatOrNull()?.let { v -> prefsViewModel.setGradeA60(v) }
-                            },
-                            label = { Text("A 起始分") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = b60,
-                            onValueChange = {
-                                b60 = it
-                                it.toFloatOrNull()?.let { v -> prefsViewModel.setGradeB60(v) }
-                            },
-                            label = { Text("B 起始分") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = c60,
-                            onValueChange = {
-                                c60 = it
-                                it.toFloatOrNull()?.let { v -> prefsViewModel.setGradeC60(v) }
-                            },
-                            label = { Text("C 起始分") },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("数据管理", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                    
-                    Button(
-                        onClick = { exportLauncher.launch("StudyTrack_Export_${System.currentTimeMillis()}.xlsx") },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("导出成绩到 Excel")
-                    }
-                    
-                    Button(
-                        onClick = { importLauncher.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel")) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("从 Excel 导入成绩")
-                    }
-
-                    TextButton(
-                        onClick = { showImportHelp = !showImportHelp },
-                        modifier = Modifier.align(Alignment.End)
-                    ) {
-                        Text(if (showImportHelp) "收起导入格式说明" else "查看导入格式说明")
-                    }
-
-                    if (showImportHelp) {
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = "Excel 首行请按以下顺序作为表头（必须是中文字段名）：\n" +
-                                "1. 科目\n" +
-                                "2. 考试名称\n" +
-                                "3. 时间（格式：yyyy-MM-dd）\n" +
-                                "4. 分数\n" +
-                                "5. 满分（用于创建科目时设置满分分值）\n" +
-                                "6. 分类（如：期中、期末，可为空）\n" +
-                                "7. 班排\n" +
-                                "8. 年排\n" +
-                                "9. 区排\n" +
-                                "10. 反思\n\n" +
-                                "导入时会按「科目」名称匹配已有科目；如不存在则自动新建，并使用「满分」列作为该科目的满分分值。",
+                            text = currentUser?.name ?: "学习同学",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = currentSemester?.name ?: "默认学期",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.84f)
                         )
-                    }
-                }
-            }
-
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("多用户模式", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f)
+                        ) {
                             Text(
-                                "为不同使用者分别记录成绩与科目数据",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                text = if (appPrefs.themeStyle == AppThemeStyle.PURE_WHITE) "纯白主题" else "液态玻璃主题",
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                style = MaterialTheme.typography.labelMedium
                             )
                         }
-                        Switch(
-                            checked = userPrefs.multiUserEnabled,
-                            onCheckedChange = { enabled ->
-                                userManagerViewModel.setMultiUserEnabled(enabled)
-                            }
+                    }
+                }
+            }
+
+            GlassCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), contentPadding = 14.dp) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    StudySectionHeader(title = "主题外观")
+                    ThemeStyleCard(
+                        title = "纯白主题",
+                        description = "默认纯白背景，干净稳定，适合长时间查看数据",
+                        selected = appPrefs.themeStyle == AppThemeStyle.PURE_WHITE,
+                        onClick = { prefsViewModel.setThemeStyle(AppThemeStyle.PURE_WHITE) }
+                    )
+                    ThemeStyleCard(
+                        title = "液态玻璃",
+                        description = "保留白色基底，增加模糊、半透明与柔和高光层次",
+                        selected = appPrefs.themeStyle == AppThemeStyle.LIQUID_GLASS,
+                        onClick = { prefsViewModel.setThemeStyle(AppThemeStyle.LIQUID_GLASS) }
+                    )
+                    StudySettingRow(
+                        icon = Icons.Default.WbSunny,
+                        title = "外观细节",
+                        subtitle = if (appPrefs.themeStyle == AppThemeStyle.LIQUID_GLASS) {
+                            "调整液态玻璃模糊、边框与折射参数"
+                        } else {
+                            "切换到液态玻璃主题后可进一步微调效果"
+                        },
+                        onClick = { navController.navigate(Screen.Personalization.route) },
+                        trailing = {
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    )
+                }
+            }
+
+            GlassCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), contentPadding = 14.dp) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StudySectionHeader(title = "学期管理")
+                    StudySettingRow(
+                        icon = Icons.Default.School,
+                        title = "当前学期",
+                        subtitle = currentSemester?.name ?: "暂无学期",
+                        trailing = {
+                            Text(
+                                text = "${semesters.size}",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    )
+                    semesters.forEach { semester ->
+                        SemesterRow(
+                            semester = semester,
+                            selected = semester.id == appPrefs.currentSemesterId,
+                            onClick = { viewModel.switchSemester(semester.id) },
+                            onEdit = {
+                                editingSemester = semester
+                                semesterNameInput = semester.name
+                                showSemesterDialog = true
+                            },
+                            onDelete = { deletingSemester = semester }
                         )
                     }
+                    Button(
+                        onClick = {
+                            editingSemester = null
+                            semesterNameInput = ""
+                            showSemesterDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("创建并切换到新学期")
+                    }
+                }
+            }
 
-                    if (userPrefs.multiUserEnabled) {
-                        Spacer(modifier = Modifier.height(8.dp))
+            GlassCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), contentPadding = 14.dp) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    StudySectionHeader(title = "数据管理")
+                    StudySettingRow(
+                        icon = Icons.Default.Storage,
+                        title = "导出成绩报告",
+                        subtitle = "导出当前学期为 Excel 文件",
+                        onClick = { exportLauncher.launch("StudyTrack_Export_${System.currentTimeMillis()}.xlsx") }
+                    )
+                    StudySettingRow(
+                        icon = Icons.Default.Storage,
+                        title = "导入成绩表",
+                        subtitle = "导入到当前学期：${currentSemester?.name ?: "默认学期"}",
+                        onClick = {
+                            importLauncher.launch(
+                                arrayOf(
+                                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    "application/vnd.ms-excel"
+                                )
+                            )
+                        }
+                    )
+                    TextButton(onClick = { showImportHelp = !showImportHelp }) {
+                        Text(if (showImportHelp) "收起导入说明" else "查看导入说明")
+                    }
+                    if (showImportHelp) {
                         Text(
-                            "用户列表",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface
+                            text = "推荐表头顺序：学期、科目、考试名称、时间、分数、满分、分类、班排、年排、区排、反思。若未提供学期列，将默认导入到当前所选学期。导出文件同样按一行一条成绩记录组织。完全相同的成绩记录会在导入时自动跳过，避免重复入库。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                }
+            }
 
+            GlassCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), contentPadding = 14.dp) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    StudySectionHeader(title = "账号与数据")
+                    StudySettingRow(
+                        icon = Icons.Default.Person,
+                        title = "多用户模式",
+                        subtitle = "为不同使用者分别管理成绩、科目与学期",
+                        trailing = {
+                            Switch(
+                                checked = userPrefs.multiUserEnabled,
+                                onCheckedChange = { userManagerViewModel.setMultiUserEnabled(it) }
+                            )
+                        }
+                    )
+                    if (userPrefs.multiUserEnabled) {
                         users.forEach { user ->
                             val isCurrent = user.id == userPrefs.currentUserId
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { userManagerViewModel.setCurrentUser(user.id) }
-                                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = if (isCurrent) "${user.name}（当前）" else user.name,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                                IconButton(onClick = {
-                                    editingUser = user
-                                    userNameInput = user.name
-                                    showUserDialog = true
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "重命名用户",
-                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                                    )
-                                }
-                                val canDelete = users.size > 1
-                                IconButton(
-                                    onClick = { if (canDelete) userManagerViewModel.deleteUser(user) },
-                                    enabled = canDelete
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "删除用户",
-                                        tint = if (canDelete) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(
-                                            alpha = 0.3f
+                            StudySettingRow(
+                                icon = Icons.Default.Person,
+                                title = if (isCurrent) "${user.name}（当前）" else user.name,
+                                subtitle = if (isCurrent) "当前活跃用户" else "点击切换到该用户",
+                                onClick = { userManagerViewModel.setCurrentUser(user.id) },
+                                trailing = {
+                                    Row {
+                                        StudyCircleIconButton(
+                                            icon = Icons.Default.Edit,
+                                            contentDescription = "编辑用户",
+                                            onClick = {
+                                                editingUser = user
+                                                userNameInput = user.name
+                                                showUserDialog = true
+                                            },
+                                            size = 32,
+                                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+                                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
-                                    )
+                                        StudyCircleIconButton(
+                                            icon = Icons.Default.Delete,
+                                            contentDescription = "删除用户",
+                                            onClick = { if (users.size > 1) userManagerViewModel.deleteUser(user) },
+                                            size = 32,
+                                            enabled = users.size > 1,
+                                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+                                            contentColor = if (users.size > 1) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
+                                        )
+                                    }
                                 }
-                            }
+                            )
                         }
-
-                        TextButton(
+                        Button(
                             onClick = {
                                 editingUser = null
                                 userNameInput = ""
                                 showUserDialog = true
                             },
-                            modifier = Modifier.align(Alignment.End)
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("添加用户")
                         }
@@ -400,254 +532,160 @@ fun SettingsScreen(
                 }
             }
 
-            if (importFailureGuide != null) {
-                val failure = importFailureGuide!!
-                AlertDialog(
-                    onDismissRequest = { importFailureGuide = null },
-                    title = { Text("导入失败") },
-                    text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text(failure.message, color = MaterialTheme.colorScheme.onSurface)
-                            Text(
-                                "正确格式说明：",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                failure.formatGuide,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
+            GlassCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), contentPadding = 14.dp) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    StudySectionHeader(title = "关于")
+                    StudySettingRow(
+                        icon = Icons.Default.Info,
+                        title = "应用信息",
+                        subtitle = "学迹（StudyTrack）本地成绩记录与分析应用"
+                    )
+                    StudySettingRow(
+                        icon = Icons.Default.Info,
+                        title = "当前版本",
+                        subtitle = versionName
+                    )
+                    StudySettingRow(
+                        icon = Icons.Default.Person,
+                        title = "作者主页",
+                        subtitle = "酷安@在摆烂中沉沦",
+                        onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.coolapk.com/u/24128753")))
+                        },
+                        trailing = {
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    },
-                    confirmButton = {
-                        TextButton(onClick = { importFailureGuide = null }) {
-                            Text("知道了")
+                    )
+                    StudySettingRow(
+                        icon = Icons.Default.Storage,
+                        title = "捐赠作者",
+                        subtitle = "扫码支持作者继续维护",
+                        onClick = { navController.navigate(Screen.Donate.route) },
+                        trailing = {
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                    }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeStyleCard(
+    title: String,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .studyPressable(
+                shape = RoundedCornerShape(18.dp),
+                onClick = onClick
+            ),
+        shape = RoundedCornerShape(18.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.75f)
+        }
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = if (selected) "当前已启用" else "点击切换",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+@Composable
+private fun SemesterRow(
+    semester: Semester,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .studyPressable(
+                shape = RoundedCornerShape(16.dp),
+                onClick = onClick
+            ),
+        shape = RoundedCornerShape(16.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+        }
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = semester.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = if (selected) "当前学期" else "点击切换到该学期",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("关于", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                    Text("学迹 (StudyTrack)", color = MaterialTheme.colorScheme.onSurface)
-                    Text(
-                        "一款专注学生个人学业成长的本地成绩管理与分析应用，支持多用户、多科目、多考试场景下的成绩记录、趋势分析与 AI 学习助手。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
-                    )
-                }
-            }
-
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        "关于作者",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    // Author Item
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                val intent =
-                                    Intent(Intent.ACTION_VIEW, Uri.parse("https://www.coolapk.com/u/24128753"))
-                                context.startActivity(intent)
-                            }
-                            .padding(vertical = 8.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "酷安@在摆烂中沉沦",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "点击访问主页",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
-                        }
-                    }
-
-                    Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-
-                    // 个人主页
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("http://repea.top/"))
-                                context.startActivity(intent)
-                            }
-                            .padding(vertical = 8.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "个人主页",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "点击访问主页",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                    }
-
-                    Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-
-                    // 捐赠作者
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { navController.navigate(Screen.Donate.route) }
-                            .padding(vertical = 8.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "捐赠作者",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "扫码支持作者",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-            }
-
-            // 鸣谢列表
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        "鸣谢",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                val intent = Intent(
-                                    Intent.ACTION_VIEW,
-                                    Uri.parse("https://github.com/Kyant0/AndroidLiquidGlass")
-                                )
-                                context.startActivity(intent)
-                            }
-                            .padding(vertical = 8.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Android Liquid Glass",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "Compose Multiplatform Liquid Glass effect",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-            }
-
-            if (showUserDialog) {
-                AlertDialog(
-                    onDismissRequest = {
-                        showUserDialog = false
-                        editingUser = null
-                        userNameInput = ""
-                    },
-                    title = {
-                        Text(
-                            if (editingUser == null) "添加用户" else "重命名用户",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    },
-                    text = {
-                        OutlinedTextField(
-                            value = userNameInput,
-                            onValueChange = { userNameInput = it },
-                            label = { Text("用户名称") },
-                            singleLine = true
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                val name = userNameInput.trim()
-                                if (name.isNotEmpty()) {
-                                    val user = editingUser
-                                    if (user == null) {
-                                        userManagerViewModel.addUser(name)
-                                    } else {
-                                        userManagerViewModel.renameUser(user, name)
-                                    }
-                                    showUserDialog = false
-                                    editingUser = null
-                                    userNameInput = ""
-                                }
-                            }
-                        ) {
-                            Text("确定")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            onClick = {
-                                showUserDialog = false
-                                editingUser = null
-                                userNameInput = ""
-                            }
-                        ) {
-                            Text("取消")
-                        }
-                    }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (selected) "使用中" else "切换",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                StudyCircleIconButton(
+                    icon = Icons.Default.Edit,
+                    contentDescription = "重命名学期",
+                    onClick = onEdit,
+                    size = 32,
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                StudyCircleIconButton(
+                    icon = Icons.Default.Delete,
+                    contentDescription = "删除学期",
+                    onClick = onDelete,
+                    size = 32,
+                    enabled = !selected,
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+                    contentColor = if (selected) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.error
                 )
             }
         }

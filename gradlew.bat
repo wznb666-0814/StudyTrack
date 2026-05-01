@@ -6,5 +6,5 @@ if defined JAVA_HOME (
 ) else (
   set JAVA_CMD=java
 )
-"%JAVA_CMD%" -classpath "%DIR%gradle\wrapper\gradle-wrapper.jar;%DIR%gradle\wrapper\gradle-wrapper-shared.jar;%DIR%gradle\wrapper\gradle-cli.jar" org.gradle.wrapper.GradleWrapperMain %*
+"%JAVA_CMD%" --enable-native-access=ALL-UNNAMED -classpath "%DIR%gradle\wrapper\gradle-wrapper.jar;%DIR%gradle\wrapper\gradle-wrapper-shared.jar;%DIR%gradle\wrapper\gradle-cli.jar" org.gradle.wrapper.GradleWrapperMain %*
 endlocal

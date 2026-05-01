@@ -6,6 +6,8 @@ import com.repea.studytrack.data.local.entity.ExamRecord
 import com.repea.studytrack.data.local.entity.ExamType
 import com.repea.studytrack.repository.StudyRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -15,6 +17,9 @@ import javax.inject.Inject
 class ExamViewModel @Inject constructor(
     private val repository: StudyRepository
 ) : ViewModel() {
+
+    private val _messages = MutableSharedFlow<String>()
+    val messages = _messages.asSharedFlow()
 
     val allRecords = repository.getAllRecords()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -49,6 +54,12 @@ class ExamViewModel @Inject constructor(
                     imageUri = imageUri
                 )
             )
+        }
+    }
+
+    fun notifyMessage(message: String) {
+        viewModelScope.launch {
+            _messages.emit(message)
         }
     }
 

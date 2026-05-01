@@ -6,9 +6,15 @@ import com.repea.studytrack.data.local.entity.Subject
 import com.repea.studytrack.repository.StudyRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class SubjectSummary(
+    val subject: Subject,
+    val recordCount: Int
+)
 
 @HiltViewModel
 class SubjectViewModel @Inject constructor(
@@ -17,6 +23,18 @@ class SubjectViewModel @Inject constructor(
 
     val subjects = repository.getAllSubjects()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val subjectSummaries = combine(
+        repository.getAllSubjects(),
+        repository.getAllRecords()
+    ) { subjects, records ->
+        subjects.map { subject ->
+            SubjectSummary(
+                subject = subject,
+                recordCount = records.count { it.exam.subjectId == subject.id }
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun addSubject(name: String, fullScore: Double) {
         viewModelScope.launch {

@@ -7,13 +7,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import androidx.navigation.NavType
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.repea.studytrack.ui.screens.*
-import com.repea.studytrack.ui.navigation.Screen
 
 @Composable
 fun NavGraph(
@@ -79,20 +78,13 @@ fun NavGraph(
             AddExamScreen(navController = navController, recordId = recordId)
         }
         composable(Screen.Analysis.route) {
-            AnalysisScreen(navController = navController)
+            AnalysisScreen()
         }
         composable(Screen.Settings.route) {
             SettingsScreen(navController = navController)
         }
         composable(Screen.Personalization.route) {
             PersonalizationScreen(navController = navController)
-        }
-        composable(
-            route = Screen.AiChat.route,
-            arguments = listOf(navArgument("subjectId") { type = NavType.IntType })
-        ) { backStackEntry ->
-            val subjectId = backStackEntry.arguments?.getInt("subjectId") ?: -1
-            AiChatScreen(navController = navController, subjectId = subjectId)
         }
         composable(Screen.Donate.route) {
             DonateScreen(navController = navController)

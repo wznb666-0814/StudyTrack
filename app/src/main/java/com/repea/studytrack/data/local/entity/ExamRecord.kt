@@ -15,7 +15,10 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("subjectId")]
+    indices = [
+        Index("subjectId"),
+        Index(value = ["subjectId", "examName", "examDate", "score", "userId", "semesterId"], unique = true)
+    ]
 )
 data class ExamRecord(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
@@ -29,5 +32,6 @@ data class ExamRecord(
     val districtRank: Int? = null,
     val reflection: String? = null,
     val imageUri: String? = null,
-    val userId: Int = 1
+    val userId: Int = 1,
+    val semesterId: Int = 1
 )

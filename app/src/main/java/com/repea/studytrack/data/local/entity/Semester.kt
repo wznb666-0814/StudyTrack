@@ -5,15 +5,14 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
-    tableName = "subjects",
+    tableName = "semesters",
     indices = [
-        Index(value = ["name", "userId", "semesterId"], unique = true)
+        Index(value = ["name", "userId"], unique = true)
     ]
 )
-data class Subject(
+data class Semester(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val name: String,
-    val fullScore: Double = 100.0,
     val userId: Int = 1,
-    val semesterId: Int = 1
+    val createdAt: Long = System.currentTimeMillis()
 )

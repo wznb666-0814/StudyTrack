@@ -5,4 +5,4 @@ if [ -n "$JAVA_HOME" ]; then
 else
   JAVA_CMD="java"
 fi
-exec "$JAVA_CMD" -classpath "$DIR/gradle/wrapper/gradle-wrapper.jar:$DIR/gradle/wrapper/gradle-wrapper-shared.jar:$DIR/gradle/wrapper/gradle-cli.jar" org.gradle.wrapper.GradleWrapperMain "$@"
+exec "$JAVA_CMD" --enable-native-access=ALL-UNNAMED -classpath "$DIR/gradle/wrapper/gradle-wrapper.jar:$DIR/gradle/wrapper/gradle-wrapper-shared.jar:$DIR/gradle/wrapper/gradle-cli.jar" org.gradle.wrapper.GradleWrapperMain "$@"

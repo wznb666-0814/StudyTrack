@@ -34,7 +34,6 @@ sealed class Screen(
     object BatchAddExam : Screen("batch_add_exam", "批量添加成绩", Icons.Default.Add)
     object Personalization : Screen("personalization", "个性化", Icons.Filled.Star, Icons.Outlined.Star)
     object Welcome : Screen("welcome", "欢迎", Icons.Filled.Home, Icons.Outlined.Home)
-    object AiChat : Screen("ai_chat/{subjectId}", "AI 对话", Icons.Filled.Star, Icons.Outlined.Star)
     object Donate : Screen("donate", "捐赠作者", Icons.Filled.Star, Icons.Outlined.Star)
 
     fun withRecordId(recordId: Int): String {
